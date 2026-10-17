@@ -99,6 +99,9 @@ COPY ./shell/coverage-report /usr/local/bin/coverage-report
 COPY ./shell/coverage-reset /usr/local/bin/coverage-reset
 RUN chmod +x /usr/local/bin/coverage-report /usr/local/bin/coverage-reset
 
+# 覆盖率详细使用指南：提示词里只留触发条件和入口，细节从这里读取
+COPY ./coverage/README.md /opt/harness/coverage/README.md
+
 COPY ./config/bashrc /root/.bashrc
 COPY ./config/append_system_prompt.md /root/.append_system_prompt.md
 COPY ./config/tmux.conf /root/.tmux.conf
