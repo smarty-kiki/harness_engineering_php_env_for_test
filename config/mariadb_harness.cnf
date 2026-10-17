@@ -1,0 +1,23 @@
+# 数字按 2C4G 的整机给（与 php-fpm、队列 worker、redis、nginx 等共用）——换机器要重算
+[mariadb]
+
+innodb_buffer_pool_size = 512M
+
+# 业务表全是 InnoDB，MyISAM / Aria 的缓冲按最小给
+key_buffer_size = 16M
+aria_pagecache_buffer_size = 16M
+aria_sort_buffer_size = 16M
+
+max_connections = 80
+sort_buffer_size = 512K
+tmp_table_size = 64M
+max_heap_table_size = 64M
+
+innodb_io_capacity = 400
+innodb_io_capacity_max = 800
+innodb_flush_neighbors = 0
+
+# 提交不再每次 fsync：极端掉电可能丢最近 1 秒已提交事务（正常 service mariadb restart 不受影响）
+innodb_flush_log_at_trx_commit = 2
+
+max_connect_errors = 1000

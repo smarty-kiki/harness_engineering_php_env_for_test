@@ -1,0 +1,64 @@
+<clickhouse>
+    <listen_host>0.0.0.0</listen_host>
+
+    <logger>
+        <level>information</level>
+        <log>/var/log/clickhouse-server/clickhouse-server.log</log>
+        <errorlog>/var/log/clickhouse-server/clickhouse-server.err.log</errorlog>
+        <size>100M</size>
+        <count>3</count>
+    </logger>
+
+    <max_server_memory_usage_to_ram_ratio>0.25</max_server_memory_usage_to_ram_ratio>
+    <merges_mutations_memory_usage_to_ram_ratio>0.2</merges_mutations_memory_usage_to_ram_ratio>
+
+    <mark_cache_size>134217728</mark_cache_size>
+    <index_mark_cache_size>33554432</index_mark_cache_size>
+    <uncompressed_cache_size>0</uncompressed_cache_size>
+    <compiled_expression_cache_size>33554432</compiled_expression_cache_size>
+    <query_condition_cache_size>16777216</query_condition_cache_size>
+
+    <background_pool_size>4</background_pool_size>
+    <background_schedule_pool_size>16</background_schedule_pool_size>
+    <background_common_pool_size>2</background_common_pool_size>
+    <background_move_pool_size>2</background_move_pool_size>
+    <background_fetches_pool_size>2</background_fetches_pool_size>
+    <background_distributed_schedule_pool_size>2</background_distributed_schedule_pool_size>
+
+    <max_concurrent_queries>20</max_concurrent_queries>
+    <max_connections>200</max_connections>
+    <max_thread_pool_size>1000</max_thread_pool_size>
+    <max_thread_pool_free_size>100</max_thread_pool_free_size>
+
+    <total_memory_profiler_step>0</total_memory_profiler_step>
+
+    <merge_tree>
+        <max_bytes_to_merge_at_max_space_in_pool>1073741824</max_bytes_to_merge_at_max_space_in_pool>
+        <!-- background_pool_size 压到 4 之后，合并线程池只有 4 * background_merges_mutations_concurrency_ratio（默认 2）= 8 个槽位，
+             而这两个阈值出厂默认是 20 和 25，启动自检时会因为超过槽位数直接报 BAD_ARGUMENTS 拒绝启动 -->
+        <number_of_free_entries_in_pool_to_execute_mutation>2</number_of_free_entries_in_pool_to_execute_mutation>
+        <number_of_free_entries_in_pool_to_execute_optimize_entire_partition>2</number_of_free_entries_in_pool_to_execute_optimize_entire_partition>
+    </merge_tree>
+
+    <trace_log remove="remove"/>
+    <query_thread_log remove="remove"/>
+    <query_views_log remove="remove"/>
+    <part_log remove="remove"/>
+    <text_log remove="remove"/>
+    <metric_log remove="remove"/>
+    <asynchronous_metric_log remove="remove"/>
+    <opentelemetry_span_log remove="remove"/>
+    <processors_profile_log remove="remove"/>
+    <asynchronous_insert_log remove="remove"/>
+    <backup_log remove="remove"/>
+    <blob_storage_log remove="remove"/>
+    <aggregated_zookeeper_log remove="remove"/>
+    <zookeeper_connection_log remove="remove"/>
+
+    <query_log>
+        <database>system</database>
+        <table>query_log</table>
+        <flush_interval_milliseconds>1000</flush_interval_milliseconds>
+        <ttl>event_date + INTERVAL 3 DAY DELETE</ttl>
+    </query_log>
+</clickhouse>
