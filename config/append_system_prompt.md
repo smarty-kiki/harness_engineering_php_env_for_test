@@ -26,7 +26,7 @@ cda 是一个允许你操作浏览器来访问页面、测试页面的工具，*
 - 开始一轮测试前执行 `coverage-reset` 清零  
 - 测试后执行 `coverage-report` 查看总覆盖率  
 - 用 `coverage-report --show-uncovered` 查看未覆盖行  
-- 默认统计项目根目录下的全部 PHP 文件（自动排除 vendor/node_modules/.git/tests/test/frame）；`frame/` 是框架核心，不参与项目代码覆盖率统计；需要聚焦某次测试时才用 `coverage-report --include <源码目录>` 缩小范围  
+- 默认统计项目根目录下的全部 PHP 文件（自动排除 vendor/node_modules/.git/tests/test/frame/project）；`frame/` 是框架核心、`project/` 是部署配置，均不参与项目代码覆盖率统计；需要聚焦某次测试时才用 `coverage-report --include <源码目录>` 缩小范围  
 - 需要报告文件时：`coverage-report --html /tmp/coverage-html --clover /tmp/coverage.xml`  
 - 采集数据在 `/var/log/harness-coverage/`；PCOV 只支持行覆盖率，不支持分支/路径覆盖率  
 - 如果项目使用 Blade 模板（如 php-vibe-coding-frame），`view/` 下的模板由编译后的代码执行，源模板通常显示 0% 行覆盖；看业务代码覆盖率时可加 `--exclude view`  

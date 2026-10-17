@@ -28,7 +28,7 @@ function coverage_report_usage(): void
 
 选项：
   --include <路径>       统计的源码目录或文件，可多次指定或逗号分隔；默认项目根目录
-                         （默认排除 vendor/node_modules/.git/tests/test/frame）
+                         （默认排除 vendor/node_modules/.git/tests/test/frame/project）
   --exclude <名称>       排除的目录名或路径片段，可多次指定或逗号分隔
   --show-uncovered       列出可执行但未覆盖的行号
   --only-summary         只输出汇总，不列出每个文件
@@ -196,9 +196,9 @@ $project = getenv('PRJ_HOME') ?: getcwd();
 $spool = getenv('HARNESS_COVERAGE_DIR') ?: '/var/log/harness-coverage';
 
 $includes = [];
-// frame 是 php-vibe-coding-frame 的框架核心，只读且不参与项目代码覆盖率统计。
-// 如确需统计框架代码，调整这里的默认排除列表。
-$excludes = ['vendor', 'node_modules', '.git', 'tests', 'test', 'frame'];
+// frame 是 php-vibe-coding-frame 的框架核心，project 是部署/环境配置，二者都不参与项目代码覆盖率统计。
+// 如确需统计这些目录，调整这里的默认排除列表。
+$excludes = ['vendor', 'node_modules', '.git', 'tests', 'test', 'frame', 'project'];
 $html = null;
 $clover = null;
 $show_uncovered = false;
