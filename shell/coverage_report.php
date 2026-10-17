@@ -72,9 +72,25 @@ function coverage_report_resolve(string $path, string $project): string
     return file_exists($candidate) ? $candidate : $path;
 }
 
-function coverage_report_is_excluded(string $path, array $exclude_names, array $exclude_fragments): bool
+function coverage_report_is_excluded(string $path, array $exclude_names, array $exclude_fragments, array $top_level_excludes = [], ?string $project_root = null): bool
 {
     $path = str_replace('\\', '/', $path);
+
+    // frame、project 这类目录只按项目根目录下的一级目录排除，
+    // 避免把 view/project 这类同名子目录一起误伤。
+    if ($project_root !== null && $top_level_excludes) {
+        $prefix = rtrim(str_replace('\\', '/', $project_root), '/').'/';
+
+        if (str_starts_with($path, $prefix)) {
+            $relative = substr($path, strlen($prefix));
+            $first_segment = strtolower(strtok($relative, '/') ?: '');
+
+            if ($first_segment !== '' && in_array($first_segment, $top_level_excludes, true)) {
+                return true;
+            }
+        }
+    }
+
     $segments = array_map('strtolower', explode('/', $path));
 
     foreach ($exclude_names as $name => $unused) {
@@ -92,10 +108,12 @@ function coverage_report_is_excluded(string $path, array $exclude_names, array $
     return false;
 }
 
-function coverage_report_scan(array $includes, array $excludes, string $project): array
+function coverage_report_scan(array $includes, array $excludes, string $project, array $top_level_excludes = []): array
 {
     $exclude_names = [];
     $exclude_fragments = [];
+    $top_level_excludes = array_map('strtolower', $top_level_excludes);
+    $project_root = realpath($project) ?: $project;
 
     foreach ($excludes as $exclude) {
         $exclude = trim(str_replace('\\', '/', $exclude), '/');
@@ -106,7 +124,7 @@ function coverage_report_scan(array $includes, array $excludes, string $project)
 
         if (str_contains($exclude, '/')) {
             $exclude_fragments[] = '/'.$exclude.'/';
-        } else {
+        } elseif (! in_array(strtolower($exclude), $top_level_excludes, true)) {
             $exclude_names[strtolower($exclude)] = true;
         }
     }
@@ -142,10 +160,10 @@ function coverage_report_scan(array $includes, array $excludes, string $project)
         // 在进入目录前就剪掉 vendor / node_modules / .git 等，避免无谓遍历
         $filtered = new RecursiveCallbackFilterIterator(
             $directory,
-            function (SplFileInfo $current) use ($exclude_names, $exclude_fragments): bool {
+            function (SplFileInfo $current) use ($exclude_names, $exclude_fragments, $top_level_excludes, $project_root): bool {
                 $path = str_replace('\\', '/', $current->getPathname());
 
-                if (coverage_report_is_excluded($path, $exclude_names, $exclude_fragments)) {
+                if (coverage_report_is_excluded($path, $exclude_names, $exclude_fragments, $top_level_excludes, $project_root)) {
                     return false;
                 }
 
@@ -169,7 +187,7 @@ function coverage_report_scan(array $includes, array $excludes, string $project)
 
                 $path = str_replace('\\', '/', $path);
 
-                if (! coverage_report_is_excluded($path, $exclude_names, $exclude_fragments)) {
+                if (! coverage_report_is_excluded($path, $exclude_names, $exclude_fragments, $top_level_excludes, $project_root)) {
                     $files[$path] = true;
                 }
             }
@@ -199,6 +217,7 @@ $includes = [];
 // frame 是 php-vibe-coding-frame 的框架核心，project 是部署/环境配置，二者都不参与项目代码覆盖率统计。
 // 如确需统计这些目录，调整这里的默认排除列表。
 $excludes = ['vendor', 'node_modules', '.git', 'tests', 'test', 'frame', 'project'];
+$top_level_excludes = ['frame', 'project'];
 $html = null;
 $clover = null;
 $show_uncovered = false;
@@ -272,7 +291,7 @@ if (! $includes) {
     $includes = [$project];
 }
 
-$files = coverage_report_scan($includes, $excludes, $project);
+$files = coverage_report_scan($includes, $excludes, $project, $top_level_excludes);
 
 if (! $files) {
     fwrite(STDERR, "没有找到要统计的 PHP 文件，请用 --include 指定源码目录\n");
