@@ -1,0 +1,15 @@
+#!/bin/sh
+
+# 清零黑盒覆盖率：删除所有已落盘的采集事件。
+# 长驻进程下一次 flush 会重新创建文件，因此重置后继续测试即可从头累计。
+
+DIR="${HARNESS_COVERAGE_DIR:-/var/log/harness-coverage}"
+
+mkdir -p "$DIR"
+chmod 0777 "$DIR" 2>/dev/null || true
+
+count=$(find "$DIR" -maxdepth 1 -type f -name '*.ndjson' 2>/dev/null | wc -l | tr -d ' ')
+
+find "$DIR" -maxdepth 1 -type f -name '*.ndjson' -delete 2>/dev/null || true
+
+echo "覆盖率已重置：清除 ${count} 个采集文件"

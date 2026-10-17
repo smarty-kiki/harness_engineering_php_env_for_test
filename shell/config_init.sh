@@ -68,3 +68,7 @@ chown clickhouse:clickhouse /var/log/clickhouse-server
 mkdir -p /var/log/kafka
 
 mkdir /tmp/chrome
+
+# 黑盒覆盖率事件目录：FPM（www-data）与 CLI（root）都要可写
+mkdir -p /var/log/harness-coverage
+chmod 0777 /var/log/harness-coverage

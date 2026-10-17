@@ -54,6 +54,57 @@ then
     echo $TIMEZONE >/etc/timezone
 fi
 
+# 黑盒覆盖率：所有 PHP 入口（FPM / CLI / 队列 worker）都会经过采集器。
+# 配置必须在启动 php-fpm 之前写好；pcov.directory 指向项目根目录，只统计项目代码。
+COVERAGE_SPOOL="${HARNESS_COVERAGE_DIR:-/var/log/harness-coverage}"
+mkdir -p "$COVERAGE_SPOOL"
+chmod 0777 "$COVERAGE_SPOOL"
+
+coverage_enabled=1
+
+if [ -z "$PRJ_HOME" ] || [ ! -d "$PRJ_HOME" ] || [ "${HARNESS_COVERAGE:-1}" = "0" ]
+then
+    coverage_enabled=0
+fi
+
+if command -v phpenmod > /dev/null 2>&1
+then
+    # 清掉上一次启动留下的旧优先级链接，避免同一份配置被加载两次
+    rm -f /etc/php/8.4/cli/conf.d/*-harness-coverage.ini
+    rm -f /etc/php/8.4/fpm/conf.d/*-harness-coverage.ini
+
+    if [ "$coverage_enabled" = "1" ] && [ -f /usr/local/lib/harness/coverage_prepend.php ]
+    then
+        PRJ_HOME_REAL="$(realpath "$PRJ_HOME")"
+
+        cat > /etc/php/8.4/mods-available/harness-coverage.ini <<INI
+; priority=99
+pcov.enabled=1
+pcov.directory="$PRJ_HOME_REAL"
+pcov.exclude="~/(vendor|node_modules|\.git)/~"
+auto_prepend_file=/usr/local/lib/harness/coverage_prepend.php
+INI
+
+        if [ -f /etc/php/8.4/mods-available/pcov.ini ]
+        then
+            phpenmod -v 8.4 -s cli pcov > /dev/null 2>&1 || true
+            phpenmod -v 8.4 -s fpm pcov > /dev/null 2>&1 || true
+        fi
+
+        phpenmod -v 8.4 -s cli harness-coverage > /dev/null 2>&1 || true
+        phpenmod -v 8.4 -s fpm harness-coverage > /dev/null 2>&1 || true
+    else
+        # 显式关闭 PCOV，避免加载扩展后即使不采集也产生插桩开销
+        cat > /etc/php/8.4/mods-available/harness-coverage.ini <<'INI'
+; priority=99
+pcov.enabled=0
+INI
+
+        phpenmod -v 8.4 -s cli harness-coverage > /dev/null 2>&1 || true
+        phpenmod -v 8.4 -s fpm harness-coverage > /dev/null 2>&1 || true
+    fi
+fi
+
 if [ -f "$BEFORE_START_SHELL" ]
 then
     /bin/bash $BEFORE_START_SHELL

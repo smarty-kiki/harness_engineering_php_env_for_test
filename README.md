@@ -14,6 +14,7 @@
 - kafka（可选组件：broker 默认不启动，启动命令末尾加 `--enable kafka` 才启动；php 的 rdkafka 扩展与 kcat 命令行已装好，装了不影响不用 kafka 的项目）
 - php8.4-fpm
 - phpunit
+- pcov（黑盒测试代码覆盖率）
 - inotify-tools
 - supervisor
 - wget
@@ -86,3 +87,46 @@ sudo docker run --rm -ti \
 | beanstalkd | 没动：可调的只有 `-z`，早先已从默认 64K 提到 512K | — |
 
 > 另修了 redis / beanstalkd 的 init 脚本：`start-stop-daemon --exec` 认进程在 rosetta 包装层下永远匹配不上，导致 `service redis-server restart` 静默假成功、`service beanstalkd restart` 报 failed 且写坏 pidfile；改成 `--name` / `--startas` 后原生机器行为不变。细节见 `shell/config_init.sh`。
+
+### 黑盒测试代码覆盖率（PCOV）
+
+环境默认开启 PCOV 覆盖率采集，**不要求项目使用 PHPUnit**。测试时通过页面、接口、CLI 命令、队列 worker 等正常入口触发代码，覆盖数据会自动汇总。
+
+采集链路：
+
+- `auto_prepend_file` 挂到所有 PHP 进程（FPM / CLI），请求或命令开始即开始采集
+- FPM 请求在结束时落盘；短 CLI 命令在退出时落盘
+- 长驻 CLI（队列 worker 等）每约 2 秒自动落盘一次，报告接近实时
+- 只统计 `$PRJ_HOME` 下的代码，排除 `vendor/`、`node_modules/`、`.git/`
+- 事件按进程写入 `/var/log/harness-coverage/*.ndjson`，由报告命令合并
+
+常用命令：
+
+```bash
+# 开始一轮测试前清零
+coverage-reset
+
+# 通过页面 / curl / bash / 队列触发业务代码……
+
+# 查看总覆盖率
+coverage-report
+
+# 列出未覆盖行
+coverage-report --show-uncovered
+
+# 只统计业务目录（推荐，减少无关文件的静态分析）
+coverage-report --include src,app
+
+# 生成 HTML / Clover 报告
+coverage-report --html /tmp/coverage-html --clover /tmp/coverage.xml
+```
+
+说明与边界：
+
+- `coverage-report` 的源码范围默认是项目根目录；项目结构复杂时用 `--include` / `--exclude` 缩小范围，未指定的源码文件也会被算入分母
+- `coverage-reset` 只清除已落盘的采集事件；正在运行的长驻进程在下一次 flush 后重新产生数据，重置后继续测试即可从头累计
+- 重置瞬间正在执行的长驻进程可能带入不到一个 flush 周期（约 2 秒）的旧数据；FPM 长连接（如 SSE）在请求结束时才落盘
+- PCOV 只提供行覆盖率，不支持分支覆盖率 / 路径覆盖率
+- 覆盖率常开会带来额外开销：CPU 密集型 CLI 脚本约 2 倍耗时，普通页面请求的相对影响较小
+- PCOV 会关闭 opcache JIT，PHP 日志里出现 `JIT is incompatible with third party extensions` 属于预期
+- 如完全不需要覆盖率（例如做性能基准），启动容器时设置 `HARNESS_COVERAGE=0`，`start` 会关闭 PCOV 采集

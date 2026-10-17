@@ -21,6 +21,16 @@ cda 日志：/tmp/chrome/supervisor-\*.log
 
 cda 是一个允许你操作浏览器来访问页面、测试页面的工具，**页面访问和测试必须优先使用 cda**，完后把访问和测试过程中你自己打开的页面关掉，**原本就存在的页面不要去关**，当 cda 中没有浏览器在线时才用 curl 命令做临时替代。工具说明：/var/www/chrome_do_action/cli/help.md  
 **只有接口 API 访问和测试才用 curl 命令来测试**  
+
+本环境的黑盒测试覆盖率默认开启（PCOV），不需要写 PHPUnit 测试。页面、接口、CLI 命令和队列 worker 执行过的代码都会自动采集：  
+- 开始一轮测试前执行 `coverage-reset` 清零  
+- 测试后执行 `coverage-report` 查看总覆盖率  
+- 用 `coverage-report --show-uncovered` 查看未覆盖行  
+- 用 `coverage-report --include <源码目录>` 限定本次统计的源码范围（多个目录用逗号分隔；项目结构复杂时建议指定，未指定的源码也会计入分母）  
+- 需要报告文件时：`coverage-report --html /tmp/coverage-html --clover /tmp/coverage.xml`  
+- 采集数据在 `/var/log/harness-coverage/`；PCOV 只支持行覆盖率，不支持分支/路径覆盖率  
+- 长驻 CLI（队列 worker）约每 2 秒落盘一次；执行 `coverage-reset` 后继续测试即可，重置瞬间可能带入不到 2 秒的旧数据  
+- 覆盖率常开有性能开销（CPU 密集型脚本约 2 倍，页面请求影响相对较小），不要为了覆盖率而跳过正常测试步骤  
 <!-- clickhouse -->
 
 ClickHouse 的 SQL 记录在 system.query_log 表里，要看 SQL 就用 clickhouse-client 查询，例如：  

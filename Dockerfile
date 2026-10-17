@@ -12,6 +12,7 @@ RUN apt-get update && \
     apt-get install redis-server -y && \
     apt-get install beanstalkd -y
 RUN apt-get install php8.4-fpm -y && \
+    apt-get install php8.4-pcov -y && \
     apt-get install php8.4-redis -y && \
     apt-get install php8.4-curl -y && \
     apt-get install php8.4-mysql -y && \
@@ -87,6 +88,16 @@ RUN npm install -g @anthropic-ai/claude-code@v2.1.217
 COPY ./shell/start.sh /bin/start
 RUN chown root:root /bin/start && \
     chmod +x /bin/start
+
+# 黑盒覆盖率工具：采集器 + 汇总/重置命令。
+# 采集器由 start.sh 写入 PHP 的 auto_prepend_file，覆盖 FPM、CLI 与队列 worker。
+RUN mkdir -p /usr/local/lib/harness /var/log/harness-coverage && \
+    chmod 0777 /var/log/harness-coverage
+COPY ./shell/coverage_prepend.php /usr/local/lib/harness/coverage_prepend.php
+COPY ./shell/coverage_report.php /usr/local/lib/harness/coverage_report.php
+COPY ./shell/coverage-report /usr/local/bin/coverage-report
+COPY ./shell/coverage-reset /usr/local/bin/coverage-reset
+RUN chmod +x /usr/local/bin/coverage-report /usr/local/bin/coverage-reset
 
 COPY ./config/bashrc /root/.bashrc
 COPY ./config/append_system_prompt.md /root/.append_system_prompt.md
