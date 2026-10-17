@@ -24,7 +24,7 @@ cda 是一个允许你操作浏览器来访问页面、测试页面的工具，*
 
 ## 黑盒测试覆盖率（PCOV）
 
-本环境默认开启 PCOV 黑盒覆盖率，不需要写 PHPUnit 测试。详细使用说明见容器内文件 `/opt/harness/coverage/README.md`。
+本环境默认开启 PCOV 黑盒覆盖率，不需要写 PHPUnit 测试。详细使用说明见容器内文件 `/usr/local/share/harness/coverage/README.md`。
 
 在以下场景先阅读该文件，再动手：
 

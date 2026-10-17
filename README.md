@@ -90,7 +90,7 @@ sudo docker run --rm -ti \
 
 ### 黑盒测试代码覆盖率（PCOV）
 
-环境默认开启 PCOV 覆盖率采集，**不要求项目使用 PHPUnit**。测试时通过页面、接口、CLI 命令、队列 worker 等正常入口触发代码，覆盖数据会自动汇总。Claude 的完整使用指南见 `coverage/README.md`（镜像内路径 `/opt/harness/coverage/README.md`）。
+环境默认开启 PCOV 覆盖率采集，**不要求项目使用 PHPUnit**。测试时通过页面、接口、CLI 命令、队列 worker 等正常入口触发代码，覆盖数据会自动汇总。Claude 的完整使用指南见 `coverage/README.md`（镜像内路径 `/usr/local/share/harness/coverage/README.md`）。
 
 采集链路：
 

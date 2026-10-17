@@ -73,7 +73,7 @@ then
     rm -f /etc/php/8.4/cli/conf.d/*-harness-coverage.ini
     rm -f /etc/php/8.4/fpm/conf.d/*-harness-coverage.ini
 
-    if [ "$coverage_enabled" = "1" ] && [ -f /usr/local/lib/harness/coverage_prepend.php ]
+    if [ "$coverage_enabled" = "1" ] && [ -f /usr/local/lib/harness/coverage/coverage_prepend.php ]
     then
         PRJ_HOME_REAL="$(realpath "$PRJ_HOME")"
 
@@ -82,7 +82,7 @@ then
 pcov.enabled=1
 pcov.directory="$PRJ_HOME_REAL"
 pcov.exclude="~/(vendor|node_modules|\.git)/~"
-auto_prepend_file=/usr/local/lib/harness/coverage_prepend.php
+auto_prepend_file=/usr/local/lib/harness/coverage/coverage_prepend.php
 INI
 
         if [ -f /etc/php/8.4/mods-available/pcov.ini ]

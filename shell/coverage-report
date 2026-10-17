@@ -1,4 +1,4 @@
 #!/bin/sh
 
 # 报告进程本身不采集覆盖率，避免统计到工具代码
-HARNESS_COVERAGE=0 exec /usr/bin/php -d pcov.enabled=0 /usr/local/lib/harness/coverage_report.php "$@"
+HARNESS_COVERAGE=0 exec /usr/bin/php -d pcov.enabled=0 /usr/local/lib/harness/coverage/coverage_report.php "$@"
