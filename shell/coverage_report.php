@@ -28,6 +28,7 @@ function coverage_report_usage(): void
 
 选项：
   --include <路径>       统计的源码目录或文件，可多次指定或逗号分隔；默认项目根目录
+                         （默认排除 vendor/node_modules/.git/tests/test/frame）
   --exclude <名称>       排除的目录名或路径片段，可多次指定或逗号分隔
   --show-uncovered       列出可执行但未覆盖的行号
   --only-summary         只输出汇总，不列出每个文件
@@ -195,7 +196,9 @@ $project = getenv('PRJ_HOME') ?: getcwd();
 $spool = getenv('HARNESS_COVERAGE_DIR') ?: '/var/log/harness-coverage';
 
 $includes = [];
-$excludes = ['vendor', 'node_modules', '.git', 'tests', 'test'];
+// frame 是 php-vibe-coding-frame 的框架核心，只读且不参与项目代码覆盖率统计。
+// 如确需统计框架代码，调整这里的默认排除列表。
+$excludes = ['vendor', 'node_modules', '.git', 'tests', 'test', 'frame'];
 $html = null;
 $clover = null;
 $show_uncovered = false;
@@ -262,6 +265,8 @@ for ($i = 0; $i < count($args); $i++) {
             exit(2);
     }
 }
+
+$user_includes = $includes;
 
 if (! $includes) {
     $includes = [$project];
@@ -393,6 +398,10 @@ foreach ($sapi_counts as $sapi => $count) {
     $sapi_parts[] = $sapi.' '.$count;
 }
 
+$scope_label = $user_includes ? implode('、', $user_includes) : $project;
+$exclude_labels = array_values(array_unique(array_filter($excludes, static fn ($value): bool => trim((string) $value) !== '')));
+
+printf("统计范围：%s（排除：%s）\n", $scope_label, $exclude_labels ? implode('、', $exclude_labels) : '无');
 printf("覆盖率事件：%d（%s），源码文件：%d\n", $event_count, implode('，', $sapi_parts), count($files));
 
 if ($first_time !== null && $last_time !== null) {

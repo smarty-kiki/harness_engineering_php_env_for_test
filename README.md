@@ -114,7 +114,7 @@ coverage-report
 # 列出未覆盖行
 coverage-report --show-uncovered
 
-# 只统计业务目录（推荐，减少无关文件的静态分析）
+# 可选：只统计业务目录，用于聚焦某次测试
 coverage-report --include src,app
 
 # 生成 HTML / Clover 报告
@@ -123,7 +123,8 @@ coverage-report --html /tmp/coverage-html --clover /tmp/coverage.xml
 
 说明与边界：
 
-- `coverage-report` 的源码范围默认是项目根目录；项目结构复杂时用 `--include` / `--exclude` 缩小范围，未指定的源码文件也会被算入分母
+- `coverage-report` 默认统计项目根目录下全部 PHP 文件（自动排除 `vendor/`、`node_modules/`、`.git/`、`tests/`、`test/`、`frame/`）；`frame/` 是 php-vibe-coding-frame 的框架核心，不参与项目代码覆盖率统计。做完整回归时不要再传 `--include`，只有聚焦某次测试时才用它缩小范围
+- 使用 Blade 的项目，`view/` 下的源模板由编译后的代码执行，通常显示 0% 行覆盖；看业务代码覆盖率时可加 `--exclude view`
 - `coverage-reset` 只清除已落盘的采集事件；正在运行的长驻进程在下一次 flush 后重新产生数据，重置后继续测试即可从头累计
 - 重置瞬间正在执行的长驻进程可能带入不到一个 flush 周期（约 2 秒）的旧数据；FPM 长连接（如 SSE）在请求结束时才落盘
 - PCOV 只提供行覆盖率，不支持分支覆盖率 / 路径覆盖率
