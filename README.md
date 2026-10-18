@@ -24,7 +24,7 @@
 - tmux
 - pip
 - claude (Anthropic CLI)
-- chrome_do_action
+- chrome_do_action_for_test（cda 测试专属版，容器内路径仍为 `/var/www/chrome_do_action`）
 - chrome_call_your_claude_code
 
 ### 快速开始
