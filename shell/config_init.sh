@@ -72,3 +72,7 @@ mkdir /tmp/chrome
 # 黑盒覆盖率事件目录：FPM（www-data）与 CLI（root）都要可写
 mkdir -p /var/log/harness-coverage
 chmod 0777 /var/log/harness-coverage
+
+# 前端覆盖率原始数据由 cda server（root）写入
+mkdir -p /var/log/harness-coverage/frontend
+chmod 0777 /var/log/harness-coverage/frontend

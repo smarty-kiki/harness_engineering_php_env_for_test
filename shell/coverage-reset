@@ -12,4 +12,10 @@ count=$(find "$DIR" -maxdepth 1 -type f -name '*.ndjson' 2>/dev/null | wc -l | t
 
 find "$DIR" -maxdepth 1 -type f -name '*.ndjson' -delete 2>/dev/null || true
 
-echo "覆盖率已重置：清除 ${count} 个采集文件"
+# 前端覆盖率原始数据（cda server 写入），与 PHP 事件一起清零
+FRONTEND_DIR="$DIR/frontend"
+frontend_count=$(find "$FRONTEND_DIR" -maxdepth 1 -type f -name '*.json' 2>/dev/null | wc -l | tr -d ' ')
+
+find "$FRONTEND_DIR" -maxdepth 1 -type f -name '*.json' -delete 2>/dev/null || true
+
+echo "覆盖率已重置：清除 ${count} 个 PHP 采集文件、${frontend_count} 个前端采集文件"

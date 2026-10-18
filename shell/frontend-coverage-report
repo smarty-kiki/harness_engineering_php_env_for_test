@@ -1,0 +1,11 @@
+#!/bin/sh
+
+# 前端覆盖率报告：合并 cda server 落盘在容器内的原始数据。
+# 默认把项目根固定为 $PRJ_HOME（或当前目录），调用方仍可显式传 --root 覆盖。
+
+case " $* " in
+    *" --root "*) ;;
+    *) set -- --root "${PRJ_HOME:-$PWD}" "$@" ;;
+esac
+
+exec cda coverage report "$@"

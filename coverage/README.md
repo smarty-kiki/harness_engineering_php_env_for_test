@@ -1,6 +1,9 @@
-# 黑盒测试覆盖率使用指南（PCOV）
+# 黑盒测试覆盖率使用指南（PHP + 前端）
 
-本环境默认开启 PCOV 黑盒代码覆盖率，不需要写 PHPUnit 测试，也不需要在项目代码里接入任何东西。页面、接口、CLI 命令和队列 worker 执行过的项目代码都会被自动采集。
+本环境提供两类覆盖率：
+
+- **PHP 覆盖率（PCOV）**：默认开启，页面、接口、CLI 命令和队列 worker 执行过的项目代码都会自动采集。
+- **前端覆盖率（V8 precise coverage）**：按需开启，通过 cda 采集 Chrome 实际执行过的 JS，报告在容器内生成，项目代码零改动。
 
 覆盖率用于判断黑盒测试是否覆盖到目标代码，不要用 phpunit 来统计。
 
@@ -47,3 +50,44 @@ coverage-report --help                            # 查看全部参数
 - PCOV 只支持行覆盖率，不支持分支/路径覆盖率。
 - 覆盖率常开有性能开销：CPU 密集型脚本约 2 倍，页面请求影响相对较小；不要为了覆盖率跳过正常测试步骤。
 - 完全不需要覆盖率时，启动容器加 `HARNESS_COVERAGE=0`。
+
+## 前端覆盖率（cda coverage）
+
+由 cda 测试专属版采集 Chrome 的 V8 precise coverage；扩展启动采集时会保持 debugger 附着，结束后必须 `stop`。报告和原始数据都在容器内：
+
+- 原始数据：`/var/log/harness-coverage/frontend/`（cda server 写入）
+- 报告：`frontend-coverage-report` 生成，默认输出 JSON（`text` 为可读摘要、`files` 为逐文件覆盖）
+
+### 标准流程
+
+```bash
+# 1. 清零 PHP + 前端两边的覆盖率数据
+coverage-reset
+
+# 2. 开启前端覆盖率（<nodeId> 从 cda list 拿）
+cda coverage start <nodeId>
+
+# 3. 用 cda 跑页面操作；也可以把多步操作写成一个序列
+cda run <nodeId> --file flow.json
+
+# 4. 结束采集（必须执行，否则调试通道会一直附着）
+cda coverage stop <nodeId>
+
+# 5. 查看前端报告
+frontend-coverage-report
+frontend-coverage-report --show-uncovered
+frontend-coverage-report --show-uncovered --html /tmp/frontend-coverage
+```
+
+等价的底层命令是 `cda coverage report --root "$PRJ_HOME"`。
+
+### 统计口径
+
+- 只统计 **JS 行/函数覆盖率**，没有分支覆盖率。
+- 外链脚本按 URL 映射到 `<PRJ_HOME>/public/<path>`；映射不到本地文件的第三方脚本不统计。
+- 内联脚本报告为 `inline: /页面路径#源文本哈希`。
+- `coverage start` 后进入跟随模式：cda 触达的 tab 自动纳入采集；导航前、加载后、约每 1.5 秒、停止/关闭 tab 时会把增量回传落盘。
+- 覆盖率会话期间 Chrome 顶部有调试信息条，视口会矮一条；截图/坐标类断言要在同一口径下做。
+- 跨域 iframe、Web Worker、Service Worker 和 source map 第一版不支持。
+- 页面自己弹出的新 tab 只有在被后续 cda 命令触达后才会开始采集。
+- 扩展更新后必须在 `chrome://extensions` 重新加载扩展。
