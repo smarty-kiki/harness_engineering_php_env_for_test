@@ -73,6 +73,6 @@ mkdir /tmp/chrome
 mkdir -p /var/log/harness-coverage
 chmod 0777 /var/log/harness-coverage
 
-# 前端覆盖率原始数据由 cda server（root）写入
-mkdir -p /var/log/harness-coverage/frontend
-chmod 0777 /var/log/harness-coverage/frontend
+# Playwright 每次运行的产物与前端覆盖率报告；root 运行、nginx（www-data）读取
+mkdir -p /var/log/harness-coverage/playwright/runs
+chmod 0777 /var/log/harness-coverage /var/log/harness-coverage/playwright /var/log/harness-coverage/playwright/runs

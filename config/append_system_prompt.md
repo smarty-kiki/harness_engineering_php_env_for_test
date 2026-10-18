@@ -19,12 +19,12 @@ Kafka 控制器日志：/var/log/kafka/controller.log
 <!-- /kafka -->
 cda 日志：/tmp/chrome/supervisor-\*.log  
 
-cda 是一个允许你操作浏览器来访问页面、测试页面的工具，**页面访问和测试必须优先使用 cda**，完后把访问和测试过程中你自己打开的页面关掉，**原本就存在的页面不要去关**，当 cda 中没有浏览器在线时才用 curl 命令做临时替代。工具说明：/var/www/chrome_do_action/cli/help.md  
-**只有接口 API 访问和测试才用 curl 命令来测试**  
+cda 是一个允许你操作浏览器来访问页面、测试页面的工具，**交互式页面访问和测试优先使用 cda**，完后把访问和测试过程中你自己打开的页面关掉，**原本就存在的页面不要去关**，当 cda 中没有浏览器在线时才用 curl 命令做临时替代。工具说明：/var/www/chrome_do_action/cli/help.md  
+**需要自动化前端流程、截图、录像、trace 或前端覆盖率时用 playwright-run**（见下方覆盖率说明），只有接口 API 访问和测试才用 curl 命令来测试  
 
 ## 黑盒测试覆盖率（PHP + 前端）
 
-本环境默认开启 PCOV 黑盒覆盖率，不需要写 PHPUnit 测试；前端覆盖率通过 cda 按需开启。详细使用说明见容器内文件 `/usr/local/share/harness/coverage/README.md`。
+本环境默认开启 PCOV 黑盒覆盖率，不需要写 PHPUnit 测试；前端自动化测试与覆盖率使用容器内 Playwright（独立 Chromium），不依赖宿主机 Chrome。详细使用说明见容器内文件 `/usr/local/share/harness/coverage/README.md`。
 
 在以下场景先阅读该文件，再动手：
 
@@ -32,10 +32,13 @@ cda 是一个允许你操作浏览器来访问页面、测试页面的工具，*
 - 开始一轮黑盒测试并需要评估覆盖情况
 - 需要生成 HTML / Clover 报告，或覆盖率报告没有数据
 - 需要统计浏览器端 JS 覆盖率
+- 需要前端测试的截图、录像或 trace
 
 最短流程：
 - PHP：`coverage-reset` → 通过 cda / curl / bash 测试 → `coverage-report`。
-- 前端：`cda coverage start <nodeId>` → 用 cda 操作页面 → `cda coverage stop <nodeId>` → `frontend-coverage-report`。  
+- 前端：复制 `/usr/local/share/harness/playwright/flow-example.js` 写流程 → `playwright-run <flow.js>` → `frontend-coverage-report`。
+- 前端观测入口在 8080（容器需映射 `-p 8080:8080`）：`/` 只读实时画面、`/artifacts/` 产物（含 trace.zip、录像、截图）、`/coverage/` HTML 报告、`/trace/` Trace Viewer。
+- 前端覆盖率按每次 `playwright-run` 独立统计；`coverage-reset` 不会删除已经生成的 trace、录像和报告。  
 <!-- clickhouse -->
 
 ClickHouse 的 SQL 记录在 system.query_log 表里，要看 SQL 就用 clickhouse-client 查询，例如：  

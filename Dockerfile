@@ -36,6 +36,11 @@ RUN apt-get install phpunit -y && \
     apt-get install supervisor -y
 RUN apt-get install python3-pip -y && \
     apt-get install curl -y
+# 前端测试的事中观测：Xvfb 承载有头 Chromium，x11vnc + noVNC 提供只读画面
+RUN apt-get install xvfb -y && \
+    apt-get install x11vnc -y && \
+    apt-get install novnc -y && \
+    apt-get install websockify -y
 
 # clickhouse 需要先导入官方源与签名密钥（curl、gnupg 要到上面一层才装好）
 RUN curl -fsSL 'https://packages.clickhouse.com/rpm/lts/repodata/repomd.xml.key' | gpg --dearmor -o /usr/share/keyrings/clickhouse-keyring.gpg && \
@@ -85,20 +90,29 @@ RUN apt install -y nodejs
 
 RUN npm install -g @anthropic-ai/claude-code@v2.1.217
 
+# Playwright 前端测试栈：容器内 Chromium + trace/录像/截图 + V8 覆盖率。
+# 浏览器随镜像安装，测试不依赖宿主机 Chrome；观测入口由 nginx 8080 提供。
+COPY ./coverage/playwright/ /usr/local/share/harness/playwright/
+RUN cd /usr/local/share/harness/playwright && \
+    npm ci --no-audit --no-fund && \
+    npx playwright install --with-deps chromium && \
+    chmod +x live-view.sh
+
 COPY ./shell/start.sh /bin/start
 RUN chown root:root /bin/start && \
     chmod +x /bin/start
 
 # 黑盒覆盖率工具：采集器 + 汇总/重置命令。
 # 采集器由 start.sh 写入 PHP 的 auto_prepend_file，覆盖 FPM、CLI 与队列 worker。
-RUN mkdir -p /usr/local/lib/harness/coverage /usr/local/share/harness/coverage /var/log/harness-coverage/frontend && \
-    chmod 0777 /var/log/harness-coverage /var/log/harness-coverage/frontend
+RUN mkdir -p /usr/local/lib/harness/coverage /usr/local/share/harness/coverage /var/log/harness-coverage/playwright/runs && \
+    chmod 0777 /var/log/harness-coverage /var/log/harness-coverage/playwright /var/log/harness-coverage/playwright/runs
 COPY ./shell/coverage_prepend.php /usr/local/lib/harness/coverage/coverage_prepend.php
 COPY ./shell/coverage_report.php /usr/local/lib/harness/coverage/coverage_report.php
 COPY ./shell/coverage-report /usr/local/bin/coverage-report
 COPY ./shell/coverage-reset /usr/local/bin/coverage-reset
 COPY ./shell/frontend-coverage-report /usr/local/bin/frontend-coverage-report
-RUN chmod +x /usr/local/bin/coverage-report /usr/local/bin/coverage-reset /usr/local/bin/frontend-coverage-report
+COPY ./shell/playwright-run /usr/local/bin/playwright-run
+RUN chmod +x /usr/local/bin/coverage-report /usr/local/bin/coverage-reset /usr/local/bin/frontend-coverage-report /usr/local/bin/playwright-run
 
 # 覆盖率详细使用指南：提示词里只留触发条件和入口，细节从这里读取
 COPY ./coverage/README.md /usr/local/share/harness/coverage/README.md
@@ -110,8 +124,9 @@ COPY ./config/tmux.conf /root/.tmux.conf
 RUN mkdir -p /root/.tmuxinator
 COPY ./config/tmuxinator_init.yml /root/.tmuxinator/init.yml
 
-# cda 测试专属版：默认服务端地址、版本号等与上游不同，安装路径沿用 /var/www/chrome_do_action
-RUN git clone https://github.com/smarty-kiki/chrome_do_action_for_test.git /var/www/chrome_do_action
+# cda：交互式页面查看工具（宿主机浏览器）。前端自动化测试与覆盖率由 Playwright 负责，
+# 不再使用测试专属版扩展，也不再需要 cda 侧的覆盖率采集。
+RUN git clone https://github.com/smarty-kiki/chrome_do_action.git /var/www/chrome_do_action
 RUN cd /var/www/chrome_do_action/server && npm install && npm run build
 RUN cd /var/www/chrome_do_action/cli && npm install && npm run build && npm link
 
@@ -119,6 +134,8 @@ RUN git clone https://github.com/smarty-kiki/chrome_call_your_claude_code /var/w
 RUN cd /var/www/chrome_call_your_claude_code/server && npm install
 
 COPY ./config/nginx_harness.conf /etc/nginx/conf.d/harness.conf
+COPY ./config/nginx_playwright.conf /etc/nginx/conf.d/harness_playwright.conf
+COPY ./config/supervisor_playwright.conf /etc/supervisor/conf.d/playwright.conf
 COPY ./config/mariadb_harness.cnf /etc/mysql/mariadb.conf.d/99-harness.cnf
 COPY ./config/redis_harness.conf /tmp/redis_harness.conf
 
@@ -127,6 +144,6 @@ RUN /bin/bash /tmp/config_init.sh
 
 ENV LC_ALL C.UTF-8
 
-EXPOSE 80 3306 8123 9092 12345 12346
+EXPOSE 80 3306 8080 8123 9092 12345 12346
 
 CMD start

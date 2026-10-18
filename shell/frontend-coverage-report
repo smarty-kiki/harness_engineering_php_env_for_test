@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# 前端覆盖率报告：合并 cda server 落盘在容器内的原始数据。
+# 前端覆盖率报告：读取最近一次 Playwright 运行的 V8 覆盖率事件。
 # 默认把项目根固定为 $PRJ_HOME（或当前目录），调用方仍可显式传 --root 覆盖。
 
 case " $* " in
@@ -8,4 +8,4 @@ case " $* " in
     *) set -- --root "${PRJ_HOME:-$PWD}" "$@" ;;
 esac
 
-exec cda coverage report "$@"
+exec node /usr/local/share/harness/playwright/report-cli.js "$@"

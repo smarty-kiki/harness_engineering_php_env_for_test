@@ -3,14 +3,14 @@
 本环境提供两类覆盖率：
 
 - **PHP 覆盖率（PCOV）**：默认开启，页面、接口、CLI 命令和队列 worker 执行过的项目代码都会自动采集。
-- **前端覆盖率（V8 precise coverage）**：按需开启，通过 cda 采集 Chrome 实际执行过的 JS，报告在容器内生成，项目代码零改动。
+- **前端覆盖率（V8 precise coverage）**：用 Playwright 在容器内驱动独立 Chromium，采集实际执行过的 JS；页面操作、截图、录像、trace 与报告一次完成，项目代码零改动。
 
 覆盖率用于判断黑盒测试是否覆盖到目标代码，不要用 phpunit 来统计。
 
 ## 标准使用流程
 
 1. 开始一轮测试前执行 `coverage-reset` 清零。
-2. 按真实入口测试：页面优先用 cda；接口用 curl；命令行和队列用 bash 触发；覆盖正常、边界和异常路径。
+2. 按真实入口测试：需要自动化、截图、录像或前端覆盖率的页面测试用 `playwright-run`；临时查看页面用 cda；接口用 curl；命令行和队列用 bash 触发；覆盖正常、边界和异常路径。
 3. 执行 `coverage-report` 查看总覆盖率。
 4. 执行 `coverage-report --show-uncovered` 查看可执行但未覆盖的行，根据未覆盖行补测，再复核。
 5. 需要给人看时生成 HTML 或 Clover 报告。
@@ -51,43 +51,82 @@ coverage-report --help                            # 查看全部参数
 - 覆盖率常开有性能开销：CPU 密集型脚本约 2 倍，页面请求影响相对较小；不要为了覆盖率跳过正常测试步骤。
 - 完全不需要覆盖率时，启动容器加 `HARNESS_COVERAGE=0`。
 
-## 前端覆盖率（cda coverage）
+## 前端测试与覆盖率（Playwright）
 
-由 cda 测试专属版采集 Chrome 的 V8 precise coverage；扩展启动采集时会保持 debugger 附着，结束后必须 `stop`。报告和原始数据都在容器内：
-
-- 原始数据：`/var/log/harness-coverage/frontend/`（cda server 写入）
-- 报告：`frontend-coverage-report` 生成，默认输出 JSON（`text` 为可读摘要、`files` 为逐文件覆盖）
+前端测试在容器内用 Playwright 驱动独立 Chromium，不依赖宿主机 Chrome，也不使用 cda 扩展。页面操作、截图、录像、trace 和 V8 精确覆盖率在同一次运行里完成。
 
 ### 标准流程
 
 ```bash
-# 1. 清零 PHP + 前端两边的覆盖率数据
-coverage-reset
+# 1. 复制流程模板并按项目实际页面改
+cp /usr/local/share/harness/playwright/flow-example.js /tmp/flow.js
+vim /tmp/flow.js
 
-# 2. 开启前端覆盖率（<nodeId> 从 cda list 拿）
-cda coverage start <nodeId>
+# 2. 运行（有头模式，测试过程中可在 8080 实时看画面）
+playwright-run /tmp/flow.js
 
-# 3. 用 cda 跑页面操作；也可以把多步操作写成一个序列
-cda run <nodeId> --file flow.json
-
-# 4. 结束采集（必须执行，否则调试通道会一直附着）
-cda coverage stop <nodeId>
-
-# 5. 查看前端报告
+# 3. 查看前端覆盖率
 frontend-coverage-report
 frontend-coverage-report --show-uncovered
-frontend-coverage-report --show-uncovered --html /tmp/frontend-coverage
+frontend-coverage-report --html /tmp/frontend-coverage
 ```
 
-等价的底层命令是 `cda coverage report --root "$PRJ_HOME"`。
+每次运行在 `/var/log/harness-coverage/playwright/runs/<时间戳>-<名称>/` 下生成独立产物，`playwright/latest` 指向最近一次：
+
+| 文件 | 内容 |
+|------|------|
+| `trace.zip` | Playwright Trace Viewer（动作、前后截图、DOM 快照、网络、Console、源码） |
+| `run.webm` | 录像；多页面流程在 `videos/` 下按页面分别保存 |
+| `screenshots/` | 流程截图，`99-final.png` 是结束时的页面 |
+| `events/` | V8 覆盖率增量事件（`report.js` 的输入） |
+| `report/` | HTML 覆盖率报告 |
+| `coverage.txt` | 文本覆盖率报告 |
+| `meta.json` | 运行信息、步骤耗时与状态、页面错误、Console 错误、覆盖率汇总 |
+
+### 流程文件
+
+流程文件导出 async function，运行器把已经开好录像、trace 和覆盖率采集的对象传进来：
+
+```js
+module.exports = async function ({ page, baseUrl, screenshot, step, takeCoverage, log, setMeta }) {
+    await step('打开首页', async () => {
+        await page.goto(`${baseUrl}/`, { waitUntil: 'load' });
+        await screenshot('01-home');
+    });
+
+    // 按项目实际页面继续写操作……
+};
+```
+
+- `page` / `context` / `browser`：Playwright 对象；`page` 是主页面。
+- `screenshot(name)`：保存到 `screenshots/`，返回文件路径。
+- `step(name, fn)`：记录步骤名称与耗时；抛错时 `meta.json` 会写明失败步骤。
+- `takeCoverage(reason)`：手动采集一次覆盖率；页面 `load`、每 3 秒、流程结束时会自动采集。
+- `log(...)`：带时间戳的运行日志；`setMeta({...})`：写入 `meta.json` 的自定义字段。
+- 返回值会写进 `meta.json` 的 `result`。
+
+常用参数：`--linger 30`（结束后保留画面 30 秒）、`--headless`（无头）、`--no-video`、`--root`、`--web-root`、`--base-url`、`--name`。
+
+### 观测入口（8080）
+
+容器内 nginx 单独监听 8080，与项目 80 端口互不影响；宿主机需要在启动容器时映射 `-p 8080:8080`：
+
+| 地址 | 内容 |
+|------|------|
+| `http://127.0.0.1:8080/` | 只读实时画面（noVNC） |
+| `http://127.0.0.1:8080/artifacts/` | 产物列表，`latest/` 是最近一次运行 |
+| `http://127.0.0.1:8080/coverage/` | 最近一次运行的 HTML 覆盖率报告 |
+| `http://127.0.0.1:8080/trace/` | 最近一次运行的 Trace Viewer |
+
+live view 使用 `x11vnc -viewonly`，只能观察、不能远程操作；需要交互就把操作写进流程文件。trace.zip 也可以下载到本地用 `npx playwright show-trace trace.zip` 打开。
 
 ### 统计口径
 
 - 只统计 **JS 行/函数覆盖率**，没有分支覆盖率。
 - 外链脚本按 URL 映射到 `<PRJ_HOME>/public/<path>`；映射不到本地文件的第三方脚本不统计。
-- 内联脚本报告为 `inline: /页面路径#源文本哈希`。
-- `coverage start` 后进入跟随模式：cda 触达的 tab 自动纳入采集；导航前、加载后、约每 1.5 秒、停止/关闭 tab 时会把增量回传落盘。
-- 覆盖率会话期间 Chrome 顶部有调试信息条，视口会矮一条；截图/坐标类断言要在同一口径下做。
-- 跨域 iframe、Web Worker、Service Worker 和 source map 第一版不支持。
-- 页面自己弹出的新 tab 只有在被后续 cda 命令触达后才会开始采集。
-- 扩展更新后必须在 `chrome://extensions` 重新加载扩展。
+- 内联脚本报告为 `inline: /页面路径#源文本哈希`；采集时会排除 Playwright/浏览器注入的匿名脚本。
+- 每次运行独立统计，不跨运行累计；补测时直接再跑一次流程。
+- `coverage-reset` 只清 PHP 采集事件，不删除已经生成的 trace、录像和前端报告。
+- 跨域 iframe、Web Worker、Service Worker 和 source map 暂不支持。
+- 同一时间只允许一个 `playwright-run`（共用一块 Xvfb 屏幕和 trace viewer）；第二个会直接报错退出。
+- 流程创建了测试账号时，跑完要清理数据库与 Redis 会话，避免污染环境。
