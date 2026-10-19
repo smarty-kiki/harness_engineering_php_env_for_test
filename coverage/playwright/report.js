@@ -176,6 +176,7 @@ async function generateCoverageReport(options) {
   const coverageMap = libCoverage.createCoverageMap({});
   const labels = new Map();
   const sourceCache = new Map();
+  const sourceByKey = new Map();
   const warnings = new Set();
   const seenKeys = new Set();
 
@@ -244,6 +245,7 @@ async function generateCoverageReport(options) {
         converter.applyCoverage(script.functions);
         coverageMap.merge(converter.toIstanbul());
         labels.set(key, label);
+        sourceByKey.set(key, source);
         seenKeys.add(key);
       } catch (err) {
         warnings.add(`脚本覆盖率转换失败：${key} — ${err instanceof Error ? err.message : String(err)}`);
@@ -293,7 +295,16 @@ async function generateCoverageReport(options) {
 
     fs.mkdirSync(htmlDir, { recursive: true });
 
-    const context = libReport.createContext({ dir: htmlDir, coverageMap });
+    // 行内脚本的 key 是「页面路径 + 源码哈希」的虚拟路径，磁盘上不存在对应文件；
+    // 必须把采集事件里的源码交给 Istanbul，否则详情页会打印 source lookup 的异常堆栈。
+    const context = libReport.createContext({
+      dir: htmlDir,
+      coverageMap,
+      sourceFinder: (file) => {
+        if (sourceByKey.has(file)) return sourceByKey.get(file);
+        return fs.readFileSync(path.resolve(root, file), 'utf8');
+      },
+    });
     reports.create('html', { subdir: '' }).execute(context);
     result.html_path = htmlDir;
   }
