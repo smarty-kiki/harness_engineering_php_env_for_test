@@ -37,7 +37,7 @@ cda 是一个允许你操作浏览器来访问页面、测试页面的工具，*
 最短流程：
 - PHP：`coverage-reset` → 通过 cda / curl / bash 测试 → `coverage-report`；需要在浏览器查看时执行 `coverage-report --html` 发布到 8080 的 `/php-coverage/`。
 - 前端：复制 `/usr/local/share/harness/playwright/flow-example.js` 写流程 → `playwright-run <flow.js>` → `frontend-coverage-report`。
-- 观测入口在 8080（容器需映射 `-p 8080:8080`）：`/` 只读实时画面、`/artifacts/` 产物（含 trace.zip、录像、截图）、`/coverage/` 前端 HTML 报告、`/php-coverage/` 后端 HTML 报告、`/reports/` 前后端覆盖率总览（同一页切换）、`/trace/` Trace Viewer。
+- 观测入口在 8080（容器需映射 `-p 8080:8080`）：`/` 观测入口目录页、`/live` 只读实时画面、`/artifacts/` 产物（含 trace.zip、录像、截图）、`/coverage/` 前端 HTML 报告、`/php-coverage/` 后端 HTML 报告、`/reports/` 前后端覆盖率总览（同一页切换）、`/trace/` Trace Viewer。
 - 前端覆盖率按每次 `playwright-run` 独立统计；后端覆盖率累计到下一次 `coverage-reset`。`coverage-reset` 不会删除已经生成的 trace、录像和报告。
 <!-- clickhouse -->
 

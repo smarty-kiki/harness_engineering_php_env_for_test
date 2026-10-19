@@ -118,6 +118,8 @@ RUN chmod +x /usr/local/bin/coverage-report /usr/local/bin/coverage-reset /usr/l
 COPY ./coverage/README.md /usr/local/share/harness/coverage/README.md
 # 8080 的覆盖率总览页：同一页切换前端 / 后端报告
 COPY ./config/coverage_reports.html /usr/local/share/harness/coverage/reports/index.html
+# 8080 根地址的观测入口目录页：集中列出实时画面、运行产物、覆盖率与 Trace Viewer
+COPY ./config/playwright_index.html /usr/local/share/harness/coverage/index.html
 
 COPY ./config/bashrc /root/.bashrc
 COPY ./config/append_system_prompt.md /root/.append_system_prompt.md

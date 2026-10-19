@@ -115,7 +115,8 @@ module.exports = async function ({ page, baseUrl, screenshot, step, takeCoverage
 
 | 地址 | 内容 |
 |------|------|
-| `http://127.0.0.1:8080/` | 只读实时画面（noVNC） |
+| `http://127.0.0.1:8080/` | 观测入口目录页，集中列出下列入口 |
+| `http://127.0.0.1:8080/live` | 只读实时画面（noVNC） |
 | `http://127.0.0.1:8080/artifacts/` | 产物列表，`latest/` 是最近一次运行 |
 | `http://127.0.0.1:8080/coverage/` | 最近一次运行的前端（V8）HTML 覆盖率报告 |
 | `http://127.0.0.1:8080/php-coverage/` | 后端（PHP）HTML 覆盖率报告快照 |
