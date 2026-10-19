@@ -121,7 +121,8 @@ COPY ./coverage/README.md /usr/local/share/harness/coverage/README.md
 COPY ./coverage/round-report.js /usr/local/share/harness/coverage/round-report.js
 COPY ./coverage/round-report.md /usr/local/share/harness/coverage/round-report.md
 
-# 综合测试平台：Playwright 前端 + 接口 + CLI 用例与单轮全量报告编排
+# 通用综合测试平台骨架：目录结构、单轮编排与通用破坏性工具。
+# 具体项目的测试用例、造数脚本与报告不随镜像发布，运行时放入 /var/www/test_usecase。
 COPY ./test_usecase/ /var/www/test_usecase/
 RUN chmod +x /var/www/test_usecase/run-all.sh
 # 8080 的覆盖率总览页：同一页切换前端 / 后端报告

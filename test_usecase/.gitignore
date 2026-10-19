@@ -1,2 +1,18 @@
-state/
-reports/
+state/*
+!state/.gitkeep
+reports/*
+!reports/.gitkeep
+
+# 具体项目的测试、造数与报告不进入通用 harness 仓库
+tests/frontend/*
+!tests/frontend/.gitkeep
+tests/api/*
+!tests/api/.gitkeep
+tests/cli/*
+!tests/cli/.gitkeep
+fixtures/*
+!fixtures/.gitkeep
+!fixtures/rollback_probe.sh
+!fixtures/delete_row.php
+lib/*
+!lib/.gitkeep

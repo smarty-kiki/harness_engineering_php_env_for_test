@@ -1,91 +1,130 @@
 #!/bin/bash
-# 单轮全量黑盒测试：前端 Playwright + 接口 + CLI，统一通过率与覆盖率报告。
+# 通用综合测试平台：按约定路径执行项目自己的前端 / 接口 / CLI 用例，
+# 统一统计通过率与覆盖率，生成 round 报告并复制到 Playwright 运行目录。
 #
-# 用法：
-#   ./run-all.sh                 # 默认无头执行
-#   ./run-all.sh --headed        # 透传 playwright-run 参数
+# 项目根：必须有 PRJ_HOME（或在启动环境时设置），本脚本不写死任何项目路径。
+# 平台目录：默认为本脚本所在目录，可用 TEST_SUITE_DIR 覆盖。
+#
+# 可选文件（存在即执行，均属于具体项目，不随 harness 仓库提供）：
+#   fixtures/prepare.sh       每轮开始前（可做队列重置等）
+#   fixtures/seed.php         造数
+#   fixtures/cleanup.php      退出时清理
+#   fixtures/cleanup.sh       退出时清理（与 cleanup.php 二选一或都执行）
+#   tests/frontend/flow.js    Playwright 流程，需在 ROUND_DIR 写 frontend-cases.json
+#   tests/api/run.js          接口测试，需在 ROUND_DIR 写 api-results.json
+#   tests/cli/run.js          CLI 测试，需在 ROUND_DIR 写 cli-results.json
+#
+# 环境变量：
+#   PRJ_HOME                 项目根目录（必填）
+#   BASE_URL                 项目地址，默认 http://127.0.0.1
+#   COVERAGE_EXCLUDE         覆盖率排除项，如 "view,harness_dir"；默认不排除
+#   TEST_TAG                 造数标签，默认本轮次号
 #
 # 产物：
-#   reports/rounds/<轮次>/      本轮报告、用例结果、前后端覆盖率
-#   reports/latest -> 最近一轮
+#   reports/rounds/<轮次>/   本轮用例结果、覆盖率、全量报告
+#   reports/latest           最近一轮
 #
-# 设计原则：页面能覆盖的逻辑优先走 Playwright；页面测不到或不好测的走 API；
-# CLI 命令通过 bash 执行。任一层失败都会继续执行后续用例，最终统一统计通过率。
+# 用法：./run-all.sh [playwright-run 参数...]
+# 例如：./run-all.sh --headed
 
 set -u
 
-SUITE=/var/www/test_usecase
-PROJECT=${PRJ_HOME:-/var/www/project_manage_system}
-BASE_URL=http://127.0.0.1
+SUITE=${TEST_SUITE_DIR:-$(cd "$(dirname "$0")" && pwd)}
+PROJECT=${PRJ_HOME:-}
+BASE_URL=${BASE_URL:-http://127.0.0.1}
 ROUND_ID=$(date +%Y%m%d-%H%M%S)
+TEST_TAG=${TEST_TAG:-$ROUND_ID}
 ROUND_DIR="$SUITE/reports/rounds/$ROUND_ID"
 LATEST_LINK="$SUITE/reports/latest"
+
+if [ -z "$PROJECT" ] || [ ! -d "$PROJECT" ]; then
+    echo "PRJ_HOME 未设置或不存在：${PROJECT:-<empty>}" >&2
+    exit 2
+fi
 
 mkdir -p "$ROUND_DIR" "$SUITE/reports/rounds"
 
 cleanup_done=0
 cleanup() {
-  if [ "$cleanup_done" = "1" ]; then return; fi
-  cleanup_done=1
-  HARNESS_COVERAGE=0 php "$SUITE/fixtures/cleanup.php" || true
+    if [ "$cleanup_done" = "1" ]; then return; fi
+    cleanup_done=1
+    if [ -f "$SUITE/fixtures/cleanup.php" ]; then
+        HARNESS_COVERAGE=0 php "$SUITE/fixtures/cleanup.php" >/dev/null 2>&1 || true
+    fi
+    if [ -f "$SUITE/fixtures/cleanup.sh" ]; then
+        bash "$SUITE/fixtures/cleanup.sh" >/dev/null 2>&1 || true
+    fi
 }
 trap cleanup EXIT
 
 cd "$PROJECT" || exit 1
 
-echo "===== 全量测试轮次：$ROUND_ID ====="
+echo "===== 综合测试轮次：$ROUND_ID ====="
 
-echo "== 重置队列（清掉上一轮遗留任务，避免复用 ID 时串数据）=="
-service beanstalkd restart >/dev/null 2>&1 || true
-supervisorctl restart 'project_manage_system_queue_worker:*' >/dev/null 2>&1 || true
-sleep 1
-HARNESS_COVERAGE=0 php "$SUITE/fixtures/pause_queue.php" 3600 >/dev/null 2>&1 || true
+if [ -f "$SUITE/fixtures/prepare.sh" ]; then
+    echo "== 执行轮次准备脚本 =="
+    HARNESS_COVERAGE=0 bash "$SUITE/fixtures/prepare.sh" || exit 1
+fi
 
-echo "== 清理旧数据 =="
-HARNESS_COVERAGE=0 php "$SUITE/fixtures/cleanup.php" >/dev/null 2>&1 || true
+if [ -f "$SUITE/fixtures/cleanup.php" ]; then
+    echo "== 清理旧数据 =="
+    HARNESS_COVERAGE=0 php "$SUITE/fixtures/cleanup.php" >/dev/null 2>&1 || true
+fi
 
 echo "== 重置覆盖率 =="
-coverage-reset || true
+coverage-reset >/dev/null 2>&1 || true
 
-echo "== 造数 =="
-HARNESS_COVERAGE=0 php "$SUITE/fixtures/seed.php" || exit 1
+if [ -f "$SUITE/fixtures/seed.php" ]; then
+    echo "== 造数 =="
+    TEST_TAG="$TEST_TAG" PW_TAG="$TEST_TAG" HARNESS_COVERAGE=0 php "$SUITE/fixtures/seed.php" || exit 1
+fi
 
-echo "== 前端 Playwright 测试 =="
+PW_STATUS=0
+RUN_DIR=""
 PW_ARGS=("$@")
-if [ "${#PW_ARGS[@]}" -eq 0 ]; then
-  PW_ARGS=(--headless)
+
+if [ -f "$SUITE/tests/frontend/flow.js" ]; then
+    echo "== 前端 Playwright 测试 =="
+    if [ "${#PW_ARGS[@]}" -eq 0 ]; then
+        PW_ARGS=(--headless)
+    fi
+    ROUND_DIR="$ROUND_DIR" TEST_TAG="$TEST_TAG" timeout 1200 playwright-run "$SUITE/tests/frontend/flow.js" \
+        --name "test-$ROUND_ID" --root "$PROJECT" "${PW_ARGS[@]}"
+    PW_STATUS=$?
+    echo "前端退出码：$PW_STATUS"
+
+    RUN_DIR=$(readlink -f /var/log/harness-coverage/playwright/latest 2>/dev/null || true)
+    if [ -n "$RUN_DIR" ] && [ -f "$RUN_DIR/meta.json" ]; then
+        cp "$RUN_DIR/meta.json" "$ROUND_DIR/frontend-meta.json" 2>/dev/null || true
+    fi
 fi
-ROUND_DIR="$ROUND_DIR" timeout 1200 playwright-run "$SUITE/tests/frontend/flow.js" \
-  --name "pms-$ROUND_ID" --root "$PROJECT" "${PW_ARGS[@]}"
-PW_STATUS=$?
-echo "前端退出码：$PW_STATUS"
 
-RUN_DIR=$(readlink -f /var/log/harness-coverage/playwright/latest 2>/dev/null || true)
-if [ -n "$RUN_DIR" ] && [ -f "$RUN_DIR/meta.json" ]; then
-  cp "$RUN_DIR/meta.json" "$ROUND_DIR/frontend-meta.json"
-  PW_RUN_ID=$(python3 -c "import json;print(json.load(open('$RUN_DIR/meta.json')).get('run_id',''))" 2>/dev/null || true)
-else
-  PW_RUN_ID=""
+API_STATUS=0
+if [ -f "$SUITE/tests/api/run.js" ]; then
+    echo "== 接口测试 =="
+    ROUND_DIR="$ROUND_DIR" BASE_URL="$BASE_URL" TEST_TAG="$TEST_TAG" node "$SUITE/tests/api/run.js"
+    API_STATUS=$?
+    echo "接口退出码：$API_STATUS"
 fi
-echo "Playwright 运行：${PW_RUN_ID:-未生成}"
 
-echo "== 接口测试 =="
-ROUND_DIR="$ROUND_DIR" BASE_URL="$BASE_URL" node "$SUITE/tests/api/run.js"
-API_STATUS=$?
-echo "接口退出码：$API_STATUS"
-
-echo "== CLI 测试 =="
-ROUND_DIR="$ROUND_DIR" node "$SUITE/tests/cli/run.js"
-CLI_STATUS=$?
-echo "CLI 退出码：$CLI_STATUS"
+CLI_STATUS=0
+if [ -f "$SUITE/tests/cli/run.js" ]; then
+    echo "== CLI 测试 =="
+    ROUND_DIR="$ROUND_DIR" TEST_TAG="$TEST_TAG" node "$SUITE/tests/cli/run.js"
+    CLI_STATUS=$?
+    echo "CLI 退出码：$CLI_STATUS"
+fi
 
 echo "== 覆盖率报告 =="
+COVERAGE_ARGS=()
+if [ -n "${COVERAGE_EXCLUDE:-}" ]; then
+    COVERAGE_ARGS=(--exclude "$COVERAGE_EXCLUDE")
+fi
+
 coverage-report --only-summary > "$ROUND_DIR/php-coverage-full.txt" 2>&1 || true
-coverage-report --exclude view,harness_engineering_php_env_for_test --show-uncovered \
-  > "$ROUND_DIR/php-coverage-business.txt" 2>&1 || true
-cp "$ROUND_DIR/php-coverage-business.txt" "$ROUND_DIR/php-uncovered.txt"
-coverage-report --exclude view,harness_engineering_php_env_for_test --html "$ROUND_DIR/php-coverage" \
-  >/dev/null 2>&1 || true
+coverage-report "${COVERAGE_ARGS[@]}" --show-uncovered > "$ROUND_DIR/php-coverage-business.txt" 2>&1 || true
+cp "$ROUND_DIR/php-coverage-business.txt" "$ROUND_DIR/php-uncovered.txt" 2>/dev/null || true
+coverage-report "${COVERAGE_ARGS[@]}" --html "$ROUND_DIR/php-coverage" >/dev/null 2>&1 || true
 
 frontend-coverage-report --root "$PROJECT" > "$ROUND_DIR/js-coverage.txt" 2>&1 || true
 frontend-coverage-report --root "$PROJECT" --show-uncovered > "$ROUND_DIR/js-uncovered.txt" 2>&1 || true
@@ -93,19 +132,18 @@ frontend-coverage-report --root "$PROJECT" --html "$ROUND_DIR/js-coverage" >/dev
 
 echo "== 生成统一报告 =="
 if command -v round-report >/dev/null 2>&1; then
-  round-report "$ROUND_DIR" "${RUN_DIR:-}"
+    round-report "$ROUND_DIR" "${RUN_DIR:-}"
 else
-  node "$SUITE/lib/report-round.js" "$ROUND_DIR" "${RUN_DIR:-}"
+    node /usr/local/share/harness/coverage/round-report.js "$ROUND_DIR" "${RUN_DIR:-}"
 fi
 REPORT_STATUS=$?
 
-# 把本轮报告放进 Playwright 运行产物，便于从 8080 直接查看
 if [ -n "${RUN_DIR:-}" ] && [ -d "$RUN_DIR" ]; then
-  mkdir -p "$RUN_DIR/round"
-  cp "$ROUND_DIR/index.html" "$ROUND_DIR/summary.json" "$ROUND_DIR/summary.md" "$RUN_DIR/round/" 2>/dev/null || true
-  cp -r "$ROUND_DIR/php-coverage" "$RUN_DIR/round/php-coverage" 2>/dev/null || true
-  cp -r "$ROUND_DIR/js-coverage" "$RUN_DIR/round/js-coverage" 2>/dev/null || true
-  cp "$ROUND_DIR/php-uncovered.txt" "$ROUND_DIR/js-uncovered.txt" "$RUN_DIR/round/" 2>/dev/null || true
+    mkdir -p "$RUN_DIR/round"
+    cp "$ROUND_DIR/index.html" "$ROUND_DIR/summary.json" "$ROUND_DIR/summary.md" "$RUN_DIR/round/" 2>/dev/null || true
+    cp -r "$ROUND_DIR/php-coverage" "$RUN_DIR/round/php-coverage" 2>/dev/null || true
+    cp -r "$ROUND_DIR/js-coverage" "$RUN_DIR/round/js-coverage" 2>/dev/null || true
+    cp "$ROUND_DIR/php-uncovered.txt" "$ROUND_DIR/js-uncovered.txt" "$RUN_DIR/round/" 2>/dev/null || true
 fi
 
 ln -sfn "$ROUND_DIR" "$LATEST_LINK"
@@ -116,6 +154,12 @@ echo "== 本轮结果 =="
 node - "$ROUND_DIR/summary.json" <<'NODE'
 const fs = require('fs');
 const file = process.argv[2];
+
+if (!fs.existsSync(file)) {
+    console.log('报告未生成：' + file);
+    process.exit(1);
+}
+
 const summary = JSON.parse(fs.readFileSync(file, 'utf-8'));
 const line = (name, layer) => `${name} ${layer.passed}/${layer.total}（${layer.pass_rate.toFixed(2)}%）`;
 console.log(line('前端：', summary.layers.frontend));
@@ -129,12 +173,15 @@ echo "报告：$ROUND_DIR/index.html"
 echo "最近一轮：$LATEST_LINK"
 
 if [ "$REPORT_STATUS" -ne 0 ]; then exit "$REPORT_STATUS"; fi
+
 FAILED_TOTAL=$(node -e "const s=require('$ROUND_DIR/summary.json');console.log(s.totals.failed+s.totals.not_run)" 2>/dev/null || echo 0)
 if [ "$FAILED_TOTAL" != "0" ]; then
-  echo "存在失败或未执行用例：$FAILED_TOTAL"
-  exit 1
+    echo "存在失败或未执行用例：$FAILED_TOTAL"
+    exit 1
 fi
+
 if [ "$PW_STATUS" -ne 0 ] || [ "$API_STATUS" -ne 0 ] || [ "$CLI_STATUS" -ne 0 ]; then
-  exit 1
+    exit 1
 fi
+
 exit 0

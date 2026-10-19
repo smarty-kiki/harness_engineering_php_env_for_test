@@ -118,7 +118,7 @@ cp -r /tmp/my-round/summary.json \
     "js": { "percent": 60.39, "covered": 6299, "total": 10574 }
   },
   "playwright": {
-    "run_id": "20261019-163254-pms-20261020-003243",
+    "run_id": "20261020-010000-test-20261020-010000",
     "flow": "/path/to/flow.js",
     "run_dir": "/var/log/harness-coverage/playwright/runs/..."
   }
@@ -148,13 +148,13 @@ cp -r /tmp/my-round/summary.json \
 
 展开「全量用例（N）」时按 `前端 / 接口 / CLI` 分组展示全部用例；失败或未执行项显示「期望 / 实际」。收起后的按钮文案是「收起用例」。
 
-## 6. 综合测试平台放在哪里
+## 6. 通用测试平台骨架与项目测试
 
-本环境的综合测试平台位于 `/var/www/test_usecase`，包含 Playwright 前端、接口、CLI 三层用例与单轮编排：
+harness 镜像在 `/var/www/test_usecase` 提供的是**通用**测试平台骨架：
 
-- 源码随镜像提供，版本管理在 harness 仓库的 `test_usecase/`；入口是 `/var/www/test_usecase/run-all.sh`。
+- 目录结构、`run-all.sh` 单轮编排、`fixtures/rollback_probe.sh`、`fixtures/delete_row.php` 属于通用工具，随镜像发布。
+- **具体项目的测试用例、造数脚本、清理脚本和报告不进入 harness 仓库**；把它们放在运行期目录或挂载进容器的项目目录（如项目的 `tests/e2e/`），不要只放 `/tmp`。
+- 项目测试按约定路径接入：`tests/frontend/flow.js`、`tests/api/run.js`、`tests/cli/run.js`，以及可选的 `fixtures/seed.php` / `fixtures/cleanup.php` / `fixtures/prepare.sh`；结果文件需写入 `$ROUND_DIR` 下的约定 JSON。
 - `state/` 与 `reports/` 是运行期数据，容器重建会清空；每轮报告同时复制到 Playwright 运行目录的 `round/`，可从 8080 回看。
-- 需要修改平台代码时，改 harness 仓库的 `test_usecase/` 并重新构建镜像；运行期直接改 `/var/www/test_usecase` 不会保留到下次启动。
-- 如果项目另有测试流程，放在挂载进容器的项目目录（如 `tests/e2e/`），不要只放 `/tmp`。
-- 每轮结束调用 `round-report` 生成报告，并把 `round/` 复制到对应 Playwright 运行目录。
+- 每轮结束由 `run-all.sh` 调用 `round-report` 生成报告。
 - 覆盖率口径与命令见同目录 `README.md`；前端运行器参数见 `/usr/local/share/harness/playwright/` 与 `README.md`。
