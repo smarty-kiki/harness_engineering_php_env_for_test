@@ -350,7 +350,7 @@
 <div class="wrap">
     <header>
         <h1>测试观测台</h1>
-        <p>实时画面 · 测试用例与测试轮次 · 每轮 Trace / 覆盖率报告</p>
+        <p>实时画面 · 测试用例与测试轮次 · 每轮 Trace / 全量测试报告</p>
     </header>
 
     <div class="section-title">实时画面</div>
@@ -368,13 +368,14 @@
         <div class="empty">正在读取运行记录…</div>
     </div>
 
-    <footer>每一轮独立归档；历史轮次可直接回看 Trace 与覆盖率报告。</footer>
+    <footer>每一轮独立归档；历史轮次可直接回看 Trace 与全量测试报告。</footer>
 </div>
 
 <script>
 (function () {
     var runsBox = document.getElementById('runs');
     var metas = [];
+    var rounds = [];
 
     function esc(value) {
         return String(value == null ? '' : value)
@@ -437,6 +438,7 @@
 
     function runRow(run, index) {
         var meta = run.meta;
+        var round = run.round;
         var parts = [];
         var errorLine = '';
 
@@ -450,18 +452,29 @@
             var started = absoluteTime(meta.started_at);
             if (started) { parts.push('<span>' + esc(started) + '</span>'); }
 
-            var stats = stepStats(meta);
-            if (stats.total > 0) {
-                parts.push('<span class="badge ' + (stats.failed ? 'err' : 'ok') + '">用例通过率 ' + esc(stats.rateLabel) + '（' + stats.passed + '/' + stats.total + '）</span>');
-            }
+            if (round && round.totals) {
+                parts.push('<span class="badge ' + (round.totals.failed || round.totals.not_run ? 'err' : 'ok') + '">全量通过率 ' + (round.totals.pass_rate || 0).toFixed(2) + '%（' + round.totals.passed + '/' + round.totals.total + '）</span>');
 
-            var lines = meta.coverage && meta.coverage.totals && meta.coverage.totals.lines;
-            if (lines && lines.pct) { parts.push('<span>前端行覆盖 ' + esc(lines.pct) + '</span>'); }
+                var php = round.coverage && round.coverage.php_business;
+                var js = round.coverage && round.coverage.js;
+                if (js && js.percent) { parts.push('<span>JS ' + esc(js.percent.toFixed(2)) + '%</span>'); }
+                if (php && php.percent) { parts.push('<span>PHP ' + esc(php.percent.toFixed(2)) + '%</span>'); }
+            } else {
+                var stats = stepStats(meta);
+                if (stats.total > 0) {
+                    parts.push('<span class="badge ' + (stats.failed ? 'err' : 'ok') + '">前端用例通过率 ' + esc(stats.rateLabel) + '（' + stats.passed + '/' + stats.total + '）</span>');
+                }
+
+                var lines = meta.coverage && meta.coverage.totals && meta.coverage.totals.lines;
+                if (lines && lines.pct) { parts.push('<span>前端行覆盖 ' + esc(lines.pct) + '</span>'); }
+            }
 
             if (meta.error) {
                 errorLine = '<div class="run-error">失败于：' + esc(meta.error.step || '未知步骤');
                 if (meta.error.message) { errorLine += ' · ' + esc(meta.error.message); }
                 errorLine += '</div>';
+            } else if (round && round.totals && (round.totals.failed || round.totals.not_run)) {
+                errorLine = '<div class="run-error">全量失败 ' + round.totals.failed + ' 条，未执行 ' + round.totals.not_run + ' 条</div>';
             }
         } else {
             errorLine = '<div class="run-note">该轮次没有生成 meta.json（可能被中断），无法回看步骤与结果。</div>';
@@ -472,8 +485,10 @@
         if (meta) {
             var traceHref = '/trace/index.html?trace=' + encodeURIComponent('/artifacts/runs/' + run.name + '/trace.zip');
             actions.push('<a class="btn" href="' + traceHref + '" target="_blank" rel="noopener">Trace Viewer</a>');
-            actions.push('<button class="btn" type="button" data-steps="' + index + '" aria-expanded="false">测试用例（' + (meta.steps ? meta.steps.length : 0) + '）</button>');
-            actions.push('<a class="btn" href="/artifacts/runs/' + encodeURIComponent(run.name) + '/report/index.html" target="_blank" rel="noopener">覆盖率报告</a>');
+            actions.push('<button class="btn" type="button" data-steps="' + index + '" aria-expanded="false">前端用例（' + (meta.steps ? meta.steps.length : 0) + '）</button>');
+            if (round) {
+                actions.push('<a class="btn" href="/artifacts/runs/' + encodeURIComponent(run.name) + '/round/index.html" target="_blank" rel="noopener">全量测试报告</a>');
+            }
         } else {
             actions.push('<a class="btn" href="/artifacts/runs/' + encodeURIComponent(run.name) + '/" target="_blank" rel="noopener">产物目录</a>');
         }
@@ -487,15 +502,23 @@
             + '</article>';
     }
 
-    function renderSteps(meta) {
+    function renderSteps(meta, round) {
         var steps = Array.isArray(meta.steps) ? meta.steps : [];
         var stats = stepStats(meta);
 
         var html = '<div class="steps-head">'
-            + '<span>测试用例通过率 <strong>' + esc(stats.rateLabel) + '</strong>（' + stats.passed + '/' + stats.total + '）</span>'
+            + '<span>前端用例通过率 <strong>' + esc(stats.rateLabel) + '</strong>（' + stats.passed + '/' + stats.total + '）</span>'
             + '<span>失败 ' + stats.failed + '</span>'
             + '<span>流程文件：<code>' + esc(meta.flow || '未记录') + '</code></span>'
             + '</div>';
+
+        if (round && round.layers) {
+            html += '<div class="steps-head">'
+                + '<span>全量：' + esc(round.layers.frontend.name) + ' ' + round.layers.frontend.passed + '/' + round.layers.frontend.total + '</span>'
+                + '<span>' + esc(round.layers.api.name) + ' ' + round.layers.api.passed + '/' + round.layers.api.total + '</span>'
+                + '<span>' + esc(round.layers.cli.name) + ' ' + round.layers.cli.passed + '/' + round.layers.cli.total + '</span>'
+                + '</div>';
+        }
 
         if (steps.length === 0) {
             html += '<div class="run-note">该轮次没有记录步骤。</div>';
@@ -537,6 +560,7 @@
 
             var index = Number(button.getAttribute('data-steps'));
             var meta = metas[index];
+            var round = rounds[index];
             var article = button.closest('.run');
             var panel = article.querySelector('.steps-panel');
             var expanded = button.getAttribute('aria-expanded') === 'true';
@@ -546,12 +570,12 @@
             if (expanded) {
                 panel.hidden = true;
                 button.setAttribute('aria-expanded', 'false');
-                button.textContent = '测试用例（' + (meta.steps ? meta.steps.length : 0) + '）';
+                button.textContent = '前端用例（' + (meta.steps ? meta.steps.length : 0) + '）';
                 return;
             }
 
             if (!panel.dataset.rendered) {
-                panel.innerHTML = renderSteps(meta);
+                panel.innerHTML = renderSteps(meta, round);
                 panel.dataset.rendered = '1';
             }
 
@@ -561,10 +585,19 @@
         });
     }
 
-    function fetchMeta(name) {
-        return fetch('/artifacts/runs/' + encodeURIComponent(name) + '/meta.json', { cache: 'no-store' })
+    function fetchJson(url) {
+        return fetch(url, { cache: 'no-store' })
             .then(function (resp) { return resp.ok ? resp.json() : null; })
             .catch(function () { return null; });
+    }
+
+    function fetchRun(name) {
+        return Promise.all([
+            fetchJson('/artifacts/runs/' + encodeURIComponent(name) + '/meta.json'),
+            fetchJson('/artifacts/runs/' + encodeURIComponent(name) + '/round/summary.json'),
+        ]).then(function (values) {
+            return { name: name, meta: values[0], round: values[1] };
+        });
     }
 
     function loadRuns() {
@@ -580,12 +613,11 @@
                     .sort()
                     .reverse();
 
-                return Promise.all(names.map(function (name) {
-                    return fetchMeta(name).then(function (meta) { return { name: name, meta: meta }; });
-                }));
+                return Promise.all(names.map(fetchRun));
             })
             .then(function (runs) {
                 metas = runs.map(function (run) { return run.meta; });
+                rounds = runs.map(function (run) { return run.round; });
 
                 if (runs.length === 0) {
                     runsBox.innerHTML = '<div class="empty">还没有运行记录，执行一次 playwright-run 后这里会出现测试轮次。</div>';
