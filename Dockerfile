@@ -120,6 +120,10 @@ COPY ./coverage/README.md /usr/local/share/harness/coverage/README.md
 # 单轮全量报告生成器与契约说明
 COPY ./coverage/round-report.js /usr/local/share/harness/coverage/round-report.js
 COPY ./coverage/round-report.md /usr/local/share/harness/coverage/round-report.md
+
+# 综合测试平台：Playwright 前端 + 接口 + CLI 用例与单轮全量报告编排
+COPY ./test_usecase/ /var/www/test_usecase/
+RUN chmod +x /var/www/test_usecase/run-all.sh
 # 8080 的覆盖率总览页：同一页切换前端 / 后端报告
 COPY ./config/coverage_reports.html /usr/local/share/harness/coverage/reports/index.html
 # 8080 根地址的观测入口目录页：集中列出实时画面、运行产物、覆盖率与 Trace Viewer

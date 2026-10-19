@@ -46,7 +46,8 @@ docker build -t registry.cn-shenzhen.aliyuncs.com/smarty/harness_engineering_php
 - `Dockerfile`：镜像构建与组件安装
 - `config/`：nginx、supervisor、MariaDB/Redis/Kafka/ClickHouse 等配置
 - `shell/`：容器初始化、PHP 覆盖率工具、前端运行器入口
-- `coverage/`：覆盖率使用指南与 Playwright 运行器源码（`coverage/playwright/`）
+- `coverage/`：覆盖率使用指南、单轮全量报告生成器与 Playwright 运行器源码（`coverage/playwright/`）
+- `test_usecase/`：综合测试平台源码（Playwright 前端 + 接口 + CLI），构建时复制到 `/var/www/test_usecase`
 
 ### 快速开始
 
@@ -249,7 +250,8 @@ cp -r /tmp/my-round/. /var/log/harness-coverage/playwright/runs/<run_id>/round/
 
 - 每轮必须有 `round/summary.json` 才会出现「全量用例（N）」与「全量测试报告」；没有时回退为 `meta.json` 的前端步骤信息。
 - 全量报告的覆盖率入口在报告页内，外层行不再单独放覆盖率按钮；`/coverage/` 故意返回 404，前端覆盖率统一用 `/js-coverage/`。
-- 测试用例与造数脚本属于具体项目，应放在挂载进容器的项目目录，不要只放 `/tmp`；harness 只负责运行环境、观测台和报告生成器。
+- 本环境的综合测试平台源码随镜像放在 `/var/www/test_usecase`（harness 仓库 `test_usecase/`），入口 `run-all.sh`；`state/` 与 `reports/` 是运行期数据，容器重建会清空，每轮报告会复制到 Playwright 运行目录的 `round/` 供 8080 回看。
+- 需要修改平台代码时改 harness 仓库的 `test_usecase/` 并重新构建镜像；运行期直接改 `/var/www/test_usecase` 不会保留到下次启动。
 
 ### 目录与数据
 

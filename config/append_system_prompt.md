@@ -38,7 +38,8 @@ cda 是一个允许你操作浏览器来访问页面、测试页面的工具，*
 - PHP：`coverage-reset` → 通过 cda / curl / bash 测试 → `coverage-report`；需要在浏览器查看时执行 `coverage-report --html` 发布到 8080 的 `/php-coverage/`。
 - 前端：复制 `/usr/local/share/harness/playwright/flow-example.js` 写流程 → `playwright-run <flow.js>` → `frontend-coverage-report`。
 - 观测入口在 8080（容器需映射 `-p 8080:8080`）：`/` 观测目录页（实时画面与测试轮次，每轮含用例通过率、Trace、覆盖率报告）、`/live` 只读实时画面、`/artifacts/` 产物（含 trace.zip、录像、截图）、`/js-coverage/` 前端 JS 覆盖率报告、`/php-coverage/` 后端 HTML 报告、`/reports/` 前后端覆盖率总览（同一页切换）、`/trace/` Trace Viewer。
-- 每轮全量（前端 + 接口 + CLI）报告用 `round-report <round_dir> <playwright_run_dir>` 生成，把整个 `round/` 复制到 Playwright 运行目录后由 8080 自动展示。输入文件、`summary.json` 契约、发布与回退规则见 `/usr/local/share/harness/coverage/round-report.md`；测试用例和造数脚本属于项目，放挂载目录，不要只放 `/tmp`。
+- 综合测试平台位于 `/var/www/test_usecase`（Playwright 前端 + 接口 + CLI），入口 `run-all.sh`；源码随镜像提供，修改要改 harness 仓库的 `test_usecase/` 并重新构建，运行期 `state/`、`reports/` 不持久化，每轮报告会复制到 Playwright 运行目录的 `round/`。
+- 每轮全量报告用 `round-report <round_dir> <playwright_run_dir>` 生成，把整个 `round/` 复制到 Playwright 运行目录后由 8080 自动展示。输入文件、`summary.json` 契约、发布与回退规则见 `/usr/local/share/harness/coverage/round-report.md`。
 - 前端覆盖率按每次 `playwright-run` 独立统计；后端覆盖率累计到下一次 `coverage-reset`。`coverage-reset` 不会删除已经生成的 trace、录像和报告。
 <!-- clickhouse -->
 
