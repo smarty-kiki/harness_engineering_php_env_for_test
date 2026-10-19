@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>覆盖率报告</title>
+<style>
+    :root {
+        color-scheme: light dark;
+        --bg: #f6f7f9;
+        --panel: #ffffff;
+        --border: #d9dde3;
+        --text: #1f2328;
+        --muted: #57606a;
+        --accent: #0969da;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --bg: #0d1117;
+            --panel: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --muted: #8b949e;
+            --accent: #58a6ff;
+        }
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    html,
+    body {
+        height: 100%;
+        margin: 0;
+    }
+
+    body {
+        display: flex;
+        flex-direction: column;
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif;
+    }
+
+    header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 16px;
+        padding: 10px 16px;
+        background: var(--panel);
+        border-bottom: 1px solid var(--border);
+    }
+
+    h1 {
+        margin: 0;
+        font-size: 15px;
+    }
+
+    nav {
+        display: flex;
+        gap: 14px;
+        margin-left: auto;
+        font-size: 13px;
+    }
+
+    a {
+        color: var(--accent);
+        text-decoration: none;
+    }
+
+    a:hover {
+        text-decoration: underline;
+    }
+
+    .tabs {
+        display: flex;
+        gap: 8px;
+        padding: 10px 16px 0;
+    }
+
+    .tab {
+        padding: 7px 14px;
+        border: 1px solid var(--border);
+        border-bottom: none;
+        border-radius: 8px 8px 0 0;
+        background: var(--panel);
+        color: var(--muted);
+        font: inherit;
+        cursor: pointer;
+    }
+
+    .tab[aria-selected="true"] {
+        color: var(--text);
+        font-weight: 600;
+    }
+
+    .hint {
+        padding: 8px 16px;
+        color: var(--muted);
+        font-size: 12px;
+    }
+
+    .hint code {
+        font-size: 12px;
+    }
+
+    main {
+        flex: 1;
+        min-height: 0;
+        padding: 0 16px 16px;
+    }
+
+    iframe {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border: 1px solid var(--border);
+        border-radius: 0 8px 8px 8px;
+        background: #fff;
+    }
+
+    [hidden] {
+        display: none !important;
+    }
+</style>
+</head>
+<body>
+<header>
+    <h1>覆盖率报告</h1>
+    <nav>
+        <a href="/">实时画面</a>
+        <a href="/artifacts/">运行产物</a>
+        <a href="/trace/" target="_blank" rel="noopener">Trace Viewer</a>
+    </nav>
+</header>
+
+<div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" aria-controls="frontend" data-tab="frontend">前端（V8）</button>
+    <button class="tab" role="tab" aria-selected="false" aria-controls="php" data-tab="php">后端（PHP）</button>
+</div>
+
+<div class="hint">
+    前端报告随每次 <code>playwright-run</code> 更新；后端报告需在容器内执行 <code>coverage-report --html</code> 发布。
+    两者统计口径不同，不能相加。
+</div>
+
+<main>
+    <iframe id="frontend" src="/coverage/" title="前端覆盖率报告"></iframe>
+    <iframe id="php" src="/php-coverage/" title="后端覆盖率报告" hidden></iframe>
+</main>
+
+<script>
+    (function () {
+        var tabs = Array.prototype.slice.call(document.querySelectorAll('[data-tab]'));
+        var panes = {
+            frontend: document.getElementById('frontend'),
+            php: document.getElementById('php')
+        };
+
+        function select(name) {
+            if (!panes[name]) {
+                name = 'frontend';
+            }
+
+            tabs.forEach(function (tab) {
+                tab.setAttribute('aria-selected', String(tab.dataset.tab === name));
+            });
+
+            Object.keys(panes).forEach(function (key) {
+                panes[key].hidden = key !== name;
+            });
+
+            history.replaceState(null, '', '#' + name);
+        }
+
+        tabs.forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                select(tab.dataset.tab);
+            });
+        });
+
+        window.addEventListener('hashchange', function () {
+            select(location.hash.slice(1));
+        });
+
+        select(location.hash.slice(1) || 'frontend');
+    })();
+</script>
+</body>
+</html>

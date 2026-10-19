@@ -13,7 +13,7 @@
 2. 按真实入口测试：需要自动化、截图、录像或前端覆盖率的页面测试用 `playwright-run`；临时查看页面用 cda；接口用 curl；命令行和队列用 bash 触发；覆盖正常、边界和异常路径。
 3. 执行 `coverage-report` 查看总覆盖率。
 4. 执行 `coverage-report --show-uncovered` 查看可执行但未覆盖的行，根据未覆盖行补测，再复核。
-5. 需要给人看时生成 HTML 或 Clover 报告。
+5. 需要给人看时执行 `coverage-report --html` 发布到 8080 的 `/php-coverage/`，或生成 Clover 报告；前端报告每次 `playwright-run` 自动生成。
 
 测试过程中可以随时执行 `coverage-report` 查看当前累计结果，不需要等整轮测试结束；报告会累计到下一次 `coverage-reset`。
 
@@ -34,12 +34,14 @@ coverage-report --only-summary                    # 只看汇总
 coverage-report --show-uncovered                  # 列出未覆盖行
 coverage-report --exclude view --show-uncovered   # 业务代码口径（不含模板）
 coverage-report --include src,app                 # 聚焦某次测试
-coverage-report --html <目录>                     # HTML 报告
+coverage-report --html                            # 发布到 8080 的 /php-coverage/
+coverage-report --html <目录>                     # HTML 报告到指定目录
 coverage-report --clover <文件>                   # Clover XML
 coverage-report --help                            # 查看全部参数
 ```
 
-- HTML 报告用于人工查看，输出目录由当次任务决定；生成的报告不要提交到 git。
+- HTML 报告用于人工查看。省略目录时发布到 `/var/log/harness-coverage/php-report/`，由 8080 的 `/php-coverage/` 提供浏览；显式指定目录时输出到该目录。生成的报告不要提交到 git。
+- 后端 HTML 报告是执行命令时的快照，不会随请求自动刷新；测试后重新执行 `coverage-report --html` 即可更新 8080 上的页面。
 - 终端输出没有数据时，先确认测试流量确实打到了应用；采集事件在 `/var/log/harness-coverage/`。
 - 报告默认合并所有进程的事件，不需要在每个请求结束后手工触发落盘。
 
@@ -115,8 +117,12 @@ module.exports = async function ({ page, baseUrl, screenshot, step, takeCoverage
 |------|------|
 | `http://127.0.0.1:8080/` | 只读实时画面（noVNC） |
 | `http://127.0.0.1:8080/artifacts/` | 产物列表，`latest/` 是最近一次运行 |
-| `http://127.0.0.1:8080/coverage/` | 最近一次运行的 HTML 覆盖率报告 |
+| `http://127.0.0.1:8080/coverage/` | 最近一次运行的前端（V8）HTML 覆盖率报告 |
+| `http://127.0.0.1:8080/php-coverage/` | 后端（PHP）HTML 覆盖率报告快照 |
+| `http://127.0.0.1:8080/reports/` | 覆盖率总览，同一页切换前端 / 后端报告 |
 | `http://127.0.0.1:8080/trace/` | 最近一次运行的 Trace Viewer |
+
+`/coverage/` 随每次 `playwright-run` 自动更新；`/php-coverage/` 不是实时的，需要在容器内执行 `coverage-report --html` 发布。`/reports/` 只是统一入口，两套报告统计口径不同（前端按单次运行，后端累计到下一次 `coverage-reset`），数字不能相加。
 
 live view 使用 `x11vnc -viewonly`，只能观察、不能远程操作；需要交互就把操作写进流程文件。trace.zip 也可以下载到本地用 `npx playwright show-trace trace.zip` 打开。
 

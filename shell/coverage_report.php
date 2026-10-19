@@ -18,8 +18,16 @@ if (! is_file($autoload)) {
 
 require $autoload;
 
+// 8080 观测入口 /php-coverage/ 暴露的目录；coverage-report --html 省略目录时发布到这里。
+function coverage_report_web_html_dir(): string
+{
+    return '/var/log/harness-coverage/php-report';
+}
+
 function coverage_report_usage(): void
 {
+    $web_html_dir = coverage_report_web_html_dir();
+
     $usage = <<<TEXT
 用法：coverage-report [选项]
 
@@ -32,7 +40,8 @@ function coverage_report_usage(): void
   --exclude <名称>       排除的目录名或路径片段，可多次指定或逗号分隔
   --show-uncovered       列出可执行但未覆盖的行号
   --only-summary         只输出汇总，不列出每个文件
-  --html <目录>          生成 HTML 报告
+  --html [目录]          生成 HTML 报告；省略目录时发布到 8080 的 /php-coverage/
+                         （写入 {$web_html_dir}）
   --clover <文件>        生成 Clover XML 报告
   -h, --help             显示帮助
 
@@ -40,6 +49,7 @@ function coverage_report_usage(): void
   coverage-report
   coverage-report --include domain,controller,util
   coverage-report --show-uncovered --include src
+  coverage-report --html                                # 发布到 8080 的 /php-coverage/
   coverage-report --html /tmp/coverage-html --clover /tmp/coverage.xml
 TEXT;
 
@@ -253,14 +263,21 @@ for ($i = 0; $i < count($args); $i++) {
             $excludes = array_merge($excludes, coverage_report_paths(substr($arg, 10)));
             break;
         case $arg === '--html':
-            if (! isset($args[$i + 1])) {
-                fwrite(STDERR, "--html 缺少目录\n");
-                exit(2);
+            $next = $args[$i + 1] ?? null;
+
+            if ($next === null || str_starts_with($next, '-')) {
+                // 省略目录时发布到 nginx 8080 的 /php-coverage/
+                $html = coverage_report_web_html_dir();
+            } else {
+                $html = $args[++$i];
             }
-            $html = $args[++$i];
             break;
         case str_starts_with($arg, '--html='):
             $html = substr($arg, 7);
+
+            if ($html === '') {
+                $html = coverage_report_web_html_dir();
+            }
             break;
         case $arg === '--clover':
             if (! isset($args[$i + 1])) {

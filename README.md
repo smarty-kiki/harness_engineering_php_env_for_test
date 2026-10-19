@@ -76,7 +76,7 @@ sudo docker run --rm -ti \
 
 > **关于 Kafka：** Kafka 同属可选组件，默认也不启动（broker 是单机 KRaft 模式，日志窗口与系统提示词里的内容同样跟着启停走）。项目需要 Kafka 时，在启动命令末尾追加 `--enable kafka`，即 `... harness_engineering_php_env start --enable kafka`；两者都要就写 `--enable clickhouse,kafka`。镜像里已装好 broker、kcat（看消息用）与 php 的 rdkafka 扩展——rdkafka 是 php-vibe-coding-frame 的 kafka 队列实现要用的客户端，装了不影响不用它的项目。
 
-> **关于 8080：** 它提供前端测试的实时画面、截图、录像、trace 和覆盖率报告。若不需要局域网访问，建议写成 `-p 127.0.0.1:8080:8080`，避免把页面内容暴露到局域网；宿主 8080 已被占用时可换映射（例如 `-p 18080:8080`），访问地址的端口也要相应改。
+> **关于 8080：** 它提供前端测试的实时画面、截图、录像、trace，以及前端和后端两份覆盖率报告。若不需要局域网访问，建议写成 `-p 127.0.0.1:8080:8080`，避免把页面内容暴露到局域网；宿主 8080 已被占用时可换映射（例如 `-p 18080:8080`），访问地址的端口也要相应改。
 
 ### 参数说明
 
@@ -84,7 +84,7 @@ sudo docker run --rm -ti \
 |------|------|
 | `--rm` | 容器退出后自动删除，不留残留 |
 | `-p 80:80` | 将容器的 80 端口（nginx）映射到本机 80 端口 |
-| `-p 8080:8080` | 将容器的 8080 端口（前端测试观测入口：live view / 产物 / 覆盖率 / trace）映射到本机，与项目 80 端口互不影响 |
+| `-p 8080:8080` | 将容器的 8080 端口（测试观测入口：live view / 产物 / 前端与后端覆盖率 / trace）映射到本机，与项目 80 端口互不影响 |
 | `-p 3306:3306` | 将容器的 3306 端口（MariaDB）映射到本机，方便用本地客户端连接 |
 | `-p 8123:8123` | 将容器的 8123 端口（ClickHouse HTTP 接口）映射到本机，方便用本地客户端连接 |
 | `-p 9092:9092` | 将容器的 9092 端口（Kafka broker）映射到本机，方便用本地客户端连接 |
@@ -146,10 +146,14 @@ coverage-report --include src,app
 
 # 生成 HTML / Clover 报告
 coverage-report --html /tmp/coverage-html --clover /tmp/coverage.xml
+
+# 发布到 8080 的 /php-coverage/（省略目录）
+coverage-report --html
 ```
 
 说明与边界：
 
+- `coverage-report --html` 省略目录时，报告发布到 `/var/log/harness-coverage/php-report/`，由 8080 的 `/php-coverage/` 提供浏览；报告是执行命令时的快照，测试后重新执行即可刷新
 - `coverage-report` 默认统计项目根目录下全部 PHP 文件（自动排除 `vendor/`、`node_modules/`、`.git/`、`tests/`、`test/`、`frame/`、`project/`）；`frame/` 是 php-vibe-coding-frame 的框架核心，`project/` 是部署/环境配置，均不参与项目代码覆盖率统计。做完整回归时不要再传 `--include`，只有聚焦某次测试时才用它缩小范围
 - 使用 Blade 的项目，`view/` 下的源模板由编译后的代码执行，通常显示 0% 行覆盖；看业务代码覆盖率时可加 `--exclude view`
 - `coverage-reset` 只清除已落盘的采集事件；正在运行的长驻进程在下一次 flush 后重新产生数据，重置后继续测试即可从头累计
@@ -205,7 +209,9 @@ module.exports = async function ({ page, baseUrl, step, screenshot }) {
 |------|------|
 | `http://127.0.0.1:8080/` | 只读实时画面（noVNC，不可接管） |
 | `http://127.0.0.1:8080/artifacts/` | 运行产物列表，`latest/` 指向最近一次运行 |
-| `http://127.0.0.1:8080/coverage/` | 最近一次运行的 HTML 覆盖率报告 |
+| `http://127.0.0.1:8080/coverage/` | 最近一次运行的前端（V8）HTML 覆盖率报告 |
+| `http://127.0.0.1:8080/php-coverage/` | 后端（PHP）HTML 覆盖率报告快照 |
+| `http://127.0.0.1:8080/reports/` | 覆盖率总览，同一页切换前端 / 后端报告 |
 | `http://127.0.0.1:8080/trace/` | 最近一次运行的 Trace Viewer |
 
 注意：
@@ -215,6 +221,7 @@ module.exports = async function ({ page, baseUrl, step, screenshot }) {
 - Trace Viewer 在每次 `playwright-run` 后启动并指向本次 trace；容器刚启动、还没跑过测试时 `/trace` 不可用。托管入口始终显示最近一次运行，回看历史请到 `/artifacts/runs/<id>/` 下载 `trace.zip`，本地用 `npx playwright show-trace trace.zip` 打开
 - 同一时间只允许一个 `playwright-run`（共用一块 Xvfb 屏幕和 trace viewer），并发运行会直接报错退出
 - 前端覆盖率按「一次运行」统计，不跨运行累计；`coverage-reset` 不会删除已生成的 trace/录像
+- 后端覆盖率 HTML 不会随请求自动刷新：在容器内执行 `coverage-report --html` 后，`/php-coverage/` 与 `/reports/` 才会显示最新快照。`/reports/` 只做统一入口，前后端口径不同（前端按单次运行、后端累计到下一次 `coverage-reset`），数字不能合并相加
 - 运行记录不会自动清理，`runs/` 会持续累积；不需要的历史目录可以手动删除
 - 流程脚本要跨容器重建保留，请放在挂载进容器的项目目录（如 `tests/e2e/`）；放 `/tmp` 的脚本会随容器删除
 - 测试流程若创建了测试账号，跑完要清理数据库与 Redis 会话
@@ -224,6 +231,7 @@ module.exports = async function ({ page, baseUrl, step, screenshot }) {
 | 内容 | 位置 |
 |------|------|
 | PHP 覆盖率原始事件 | `/var/log/harness-coverage/*.ndjson` |
+| PHP 覆盖率 HTML 报告 | `/var/log/harness-coverage/php-report/` |
 | Playwright 运行产物（trace/录像/截图/events/report/meta） | `/var/log/harness-coverage/playwright/runs/<时间戳>-<名称>/` |
 | 最近一次 Playwright 运行 | `/var/log/harness-coverage/playwright/latest`（软链） |
 | Trace Viewer 日志与 PID | `/var/log/harness-coverage/playwright/trace-viewer.log`、`trace-viewer.pid` |
@@ -238,6 +246,8 @@ module.exports = async function ({ page, baseUrl, step, screenshot }) {
 - **live view 空白或连接失败**：`supervisorctl status playwright-live-view`，日志见 `/var/log/supervisor/playwright-live-view.log`；修改过配置后 `service supervisor restart`
 - **`/trace` 404**：还没有跑过 `playwright-run`；跑一次后 viewer 会自动启动
 - **前端覆盖率没有数据**：确认流程确实打开了项目页面；外链脚本要能按 URL 映射到 `<PRJ_HOME>/public/` 下的文件；页面加载过快时可手动 `await takeCoverage('原因')`
+- **`/php-coverage/` 为空或只有目录列表**：还没有发布后端 HTML 报告，在容器内执行 `coverage-report --html`；`/reports/` 里的后端标签页同理
+- **`/reports/` 打开就绪但报告是旧的**：后端报告是生成时的快照，重新执行 `coverage-report --html`；前端报告在每次 `playwright-run` 后自动更新
 - **流程失败想定位**：看运行目录里的 `meta.json`（`error.step`、`steps`）和 `trace.zip`；运行器退出码为 `1`
 - **第二个 `playwright-run` 直接报错**：同一时间只允许一个运行，等上一个结束
 - **构建时 Chromium 下载失败**：检查构建机网络；Playwright 浏览器和系统依赖在构建阶段下载，运行阶段不需要外网

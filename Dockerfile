@@ -104,8 +104,8 @@ RUN chown root:root /bin/start && \
 
 # 黑盒覆盖率工具：采集器 + 汇总/重置命令。
 # 采集器由 start.sh 写入 PHP 的 auto_prepend_file，覆盖 FPM、CLI 与队列 worker。
-RUN mkdir -p /usr/local/lib/harness/coverage /usr/local/share/harness/coverage /var/log/harness-coverage/playwright/runs && \
-    chmod 0777 /var/log/harness-coverage /var/log/harness-coverage/playwright /var/log/harness-coverage/playwright/runs
+RUN mkdir -p /usr/local/lib/harness/coverage /usr/local/share/harness/coverage/reports /var/log/harness-coverage/playwright/runs /var/log/harness-coverage/php-report && \
+    chmod 0777 /var/log/harness-coverage /var/log/harness-coverage/playwright /var/log/harness-coverage/playwright/runs /var/log/harness-coverage/php-report
 COPY ./shell/coverage_prepend.php /usr/local/lib/harness/coverage/coverage_prepend.php
 COPY ./shell/coverage_report.php /usr/local/lib/harness/coverage/coverage_report.php
 COPY ./shell/coverage-report /usr/local/bin/coverage-report
@@ -116,6 +116,8 @@ RUN chmod +x /usr/local/bin/coverage-report /usr/local/bin/coverage-reset /usr/l
 
 # 覆盖率详细使用指南：提示词里只留触发条件和入口，细节从这里读取
 COPY ./coverage/README.md /usr/local/share/harness/coverage/README.md
+# 8080 的覆盖率总览页：同一页切换前端 / 后端报告
+COPY ./config/coverage_reports.html /usr/local/share/harness/coverage/reports/index.html
 
 COPY ./config/bashrc /root/.bashrc
 COPY ./config/append_system_prompt.md /root/.append_system_prompt.md
