@@ -14,7 +14,7 @@
  * 观测入口由 nginx 8080 提供（见 config/nginx_playwright.conf）：
  *   /            只读 live view（noVNC）
  *   /artifacts/  产物（latest/ 指向最近一次运行）
- *   /coverage/   最近一次运行的 HTML 覆盖率报告
+ *   /js-coverage/ 最近一次运行的 HTML 覆盖率报告
  *   /trace/      最近一次运行的 Trace Viewer
  */
 
@@ -587,7 +587,7 @@ async function main() {
   log(`产物目录: ${runDir}`);
   log(`画面（只读）: ${PUBLIC_URL}/`);
   log(`产物入口: ${PUBLIC_URL}/artifacts/latest/`);
-  log(`覆盖率报告: ${PUBLIC_URL}/coverage/`);
+  log(`覆盖率报告: ${PUBLIC_URL}/js-coverage/`);
   log(`Trace Viewer: ${PUBLIC_URL}/trace/`);
 
   if (flowError) {

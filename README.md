@@ -207,10 +207,10 @@ module.exports = async function ({ page, baseUrl, step, screenshot }) {
 
 | 地址 | 内容 |
 |------|------|
-| `http://127.0.0.1:8080/` | 观测入口目录页，集中列出下表中的所有入口 |
+| `http://127.0.0.1:8080/` | 观测目录页：实时画面 + 测试轮次（每轮含用例通过率、Trace、覆盖率报告） |
 | `http://127.0.0.1:8080/live` | 只读实时画面（noVNC，不可接管） |
 | `http://127.0.0.1:8080/artifacts/` | 运行产物列表，`latest/` 指向最近一次运行 |
-| `http://127.0.0.1:8080/coverage/` | 最近一次运行的前端（V8）HTML 覆盖率报告 |
+| `http://127.0.0.1:8080/js-coverage/` | 最近一次运行的前端（JS / V8）HTML 覆盖率报告 |
 | `http://127.0.0.1:8080/php-coverage/` | 后端（PHP）HTML 覆盖率报告快照 |
 | `http://127.0.0.1:8080/reports/` | 覆盖率总览，同一页切换前端 / 后端报告 |
 | `http://127.0.0.1:8080/trace/` | 最近一次运行的 Trace Viewer |

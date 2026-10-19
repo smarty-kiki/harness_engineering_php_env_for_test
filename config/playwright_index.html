@@ -21,6 +21,7 @@
         --err: #cf222e;
         --err-soft: #ffebe9;
         --shadow: 0 1px 0 rgba(31, 35, 40, .04), 0 1px 3px rgba(31, 35, 40, .06);
+        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
     }
 
     @media (prefers-color-scheme: dark) {
@@ -52,48 +53,180 @@
     }
 
     .wrap {
-        max-width: 1080px;
+        max-width: 1180px;
         margin: 0 auto;
         padding: 32px 20px 48px;
     }
 
-    header {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: flex-end;
-        gap: 12px 24px;
-        margin-bottom: 24px;
-    }
+    header { margin-bottom: 24px; }
 
-    .brand h1 {
+    header h1 {
         margin: 0;
         font-size: 24px;
         letter-spacing: .2px;
     }
 
-    .brand p {
+    header p {
         margin: 4px 0 0;
         color: var(--muted);
         font-size: 13px;
     }
 
-    .latest {
-        margin-left: auto;
+    .section-title {
         display: flex;
-        align-items: center;
+        align-items: baseline;
         gap: 10px;
-        padding: 8px 12px;
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        background: var(--panel);
-        box-shadow: var(--shadow);
-        font-size: 12px;
+        margin: 26px 0 10px;
+        font-size: 13px;
+        font-weight: 600;
         color: var(--muted);
-        min-height: 38px;
-        flex-wrap: wrap;
+        text-transform: uppercase;
+        letter-spacing: .08em;
     }
 
-    .latest strong { color: var(--text); font-weight: 600; }
+    .live-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 16px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--panel);
+        box-shadow: var(--shadow);
+    }
+
+    .live-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        flex: 0 0 36px;
+        border-radius: 10px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 18px;
+    }
+
+    .live-copy { min-width: 0; }
+
+    .live-copy strong {
+        display: block;
+        font-size: 15px;
+        line-height: 1.4;
+    }
+
+    .live-copy span {
+        display: block;
+        color: var(--muted);
+        font-size: 12.5px;
+        line-height: 1.5;
+    }
+
+    .live-row .btn { margin-left: auto; }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--panel);
+        color: var(--text);
+        font: inherit;
+        font-size: 12.5px;
+        line-height: 1.4;
+        text-decoration: none;
+        white-space: nowrap;
+        cursor: pointer;
+        transition: border-color .12s ease, background .12s ease, color .12s ease;
+    }
+
+    .btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: var(--accent-soft);
+    }
+
+    .btn:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+    }
+
+    .btn.primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #fff;
+    }
+
+    .btn.primary:hover {
+        filter: brightness(1.05);
+        color: #fff;
+    }
+
+    .runs {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .run {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--panel);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+    }
+
+    .run-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 13px 16px;
+    }
+
+    .run-main { min-width: 0; flex: 1; }
+
+    .run-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 12px;
+        color: var(--muted);
+        font-size: 12.5px;
+    }
+
+    .run-id {
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 13px;
+        font-weight: 600;
+        word-break: break-all;
+    }
+
+    .run-error {
+        margin-top: 5px;
+        color: var(--err);
+        font-size: 12.5px;
+        line-height: 1.5;
+        word-break: break-word;
+    }
+
+    .run-note {
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 12.5px;
+    }
+
+    .run-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: flex-end;
+        flex: 0 0 auto;
+    }
 
     .badge {
         display: inline-flex;
@@ -111,230 +244,137 @@
     .badge.warn { color: var(--warn); background: var(--warn-soft); }
     .badge.dim { color: var(--muted); background: var(--bg); border: 1px solid var(--border); }
 
-    .section-title {
-        display: flex;
-        align-items: baseline;
-        gap: 10px;
-        margin: 28px 0 10px;
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--muted);
-        text-transform: uppercase;
-        letter-spacing: .08em;
+    .steps-panel {
+        border-top: 1px dashed var(--border);
+        padding: 11px 16px 14px;
+        background: color-mix(in srgb, var(--bg) 55%, var(--panel));
     }
 
-    .grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 12px;
-    }
-
-    a.card {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        padding: 16px;
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        background: var(--panel);
-        box-shadow: var(--shadow);
-        color: inherit;
-        text-decoration: none;
-        transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
-    }
-
-    a.card:hover {
-        transform: translateY(-2px);
-        border-color: var(--accent);
-        box-shadow: 0 6px 18px rgba(9, 105, 218, .12);
-    }
-
-    a.card:focus-visible {
-        outline: 2px solid var(--accent);
-        outline-offset: 2px;
-    }
-
-    .card-head {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .icon {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 34px;
-        height: 34px;
-        flex: 0 0 34px;
-        border-radius: 9px;
-        background: var(--accent-soft);
-        color: var(--accent);
-        font-size: 17px;
-    }
-
-    .card-title {
-        font-size: 15px;
-        font-weight: 600;
-        line-height: 1.3;
-    }
-
-    .card-desc {
-        color: var(--muted);
-        font-size: 12.5px;
-        line-height: 1.55;
-    }
-
-    .card-path {
-        margin-top: auto;
-        padding-top: 6px;
-        color: var(--muted);
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        font-size: 11.5px;
-        opacity: .85;
-        overflow-wrap: anywhere;
-    }
-
-    .card-meta {
+    .steps-head {
         display: flex;
         flex-wrap: wrap;
-        gap: 6px;
-        margin-top: 4px;
+        align-items: center;
+        gap: 6px 14px;
+        color: var(--muted);
+        font-size: 12px;
+        margin-bottom: 8px;
     }
 
-    .hint {
-        margin-top: 28px;
-        padding: 14px 16px;
+    .steps-head code {
+        font-family: var(--mono);
+        color: var(--text);
+        word-break: break-all;
+    }
+
+    .steps-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        max-height: 340px;
+        overflow: auto;
         border: 1px solid var(--border);
-        border-radius: 10px;
+        border-radius: 8px;
         background: var(--panel);
-        color: var(--muted);
+    }
+
+    .step {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        padding: 5px 10px;
+        border-bottom: 1px solid var(--border);
         font-size: 12.5px;
     }
 
-    .hint code {
-        padding: 1px 5px;
-        border-radius: 5px;
-        background: var(--bg);
-        border: 1px solid var(--border);
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    .step:last-child { border-bottom: 0; }
+
+    .step-icon {
+        width: 16px;
+        flex: 0 0 16px;
+        text-align: center;
+        color: var(--ok);
+        font-weight: 700;
+    }
+
+    .step.error .step-icon { color: var(--err); }
+    .step.error .step-name { color: var(--err); }
+
+    .step-name { min-width: 0; flex: 1; word-break: break-word; }
+
+    .step-time {
+        color: var(--muted);
+        font-family: var(--mono);
         font-size: 11.5px;
-        color: var(--text);
+        white-space: nowrap;
+    }
+
+    .run-issues {
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 12px;
+    }
+
+    .run-issues strong { color: var(--err); }
+
+    .run-issues ul {
+        margin: 4px 0 0;
+        padding-left: 18px;
+    }
+
+    .empty {
+        padding: 28px 16px;
+        border: 1px dashed var(--border);
+        border-radius: 12px;
+        color: var(--muted);
+        text-align: center;
+        font-size: 13px;
     }
 
     footer {
-        margin-top: 22px;
+        margin-top: 24px;
         color: var(--muted);
         font-size: 12px;
         text-align: center;
     }
 
-    @media (max-width: 640px) {
+    @media (max-width: 760px) {
         .wrap { padding: 22px 14px 36px; }
-        .latest { margin-left: 0; width: 100%; }
-        .grid { grid-template-columns: 1fr; }
+        .live-row { align-items: flex-start; flex-wrap: wrap; }
+        .live-row .btn { margin-left: 50px; }
+        .run-row { flex-direction: column; gap: 10px; }
+        .run-actions { justify-content: flex-start; width: 100%; }
     }
 </style>
 </head>
 <body>
 <div class="wrap">
     <header>
-        <div class="brand">
-            <h1>测试观测台</h1>
-            <p>Playwright 前端测试 · 运行产物 · 前后端覆盖率 · Trace Viewer</p>
-        </div>
-        <div class="latest" id="latest-run">
-            <span>最近一次运行</span>
-            <span class="badge dim">读取中…</span>
-        </div>
+        <h1>测试观测台</h1>
+        <p>实时画面 · 测试用例与测试轮次 · 每轮 Trace / 覆盖率报告</p>
     </header>
 
-    <div class="section-title">测试过程</div>
-    <div class="grid">
-        <a class="card" href="/vnc/vnc.html?autoconnect=true&resize=scale&view_only=true">
-            <div class="card-head">
-                <span class="icon">◉</span>
-                <span class="card-title">实时画面</span>
-            </div>
-            <span class="card-desc">只读 noVNC 画面，playwright-run 执行时可直接观察浏览器操作。不可远程接管。</span>
-            <span class="card-path">/vnc/vnc.html?autoconnect=true&amp;resize=scale&amp;view_only=true</span>
-        </a>
-
-        <a class="card" href="/trace">
-            <div class="card-head">
-                <span class="icon">⌁</span>
-                <span class="card-title">Trace Viewer</span>
-            </div>
-            <span class="card-desc">最近一次运行的 Playwright trace：动作、DOM 快照、网络与 Console。</span>
-            <span class="card-path">/trace</span>
-        </a>
+    <div class="section-title">实时画面</div>
+    <div class="live-row">
+        <span class="live-icon">◉</span>
+        <div class="live-copy">
+            <strong>只读实时画面</strong>
+            <span>playwright-run 执行时可直接观察浏览器操作，不可远程接管。</span>
+        </div>
+        <a class="btn primary" href="/vnc/vnc.html?autoconnect=true&resize=scale&view_only=true">打开实时画面</a>
     </div>
 
-    <div class="section-title">运行产物</div>
-    <div class="grid">
-        <a class="card" href="/artifacts/latest/">
-            <div class="card-head">
-                <span class="icon">▤</span>
-                <span class="card-title">最近一次运行</span>
-            </div>
-            <span class="card-desc">trace.zip、录像、截图、覆盖率事件与 meta.json，按运行独立归档。</span>
-            <span class="card-path">/artifacts/latest/</span>
-        </a>
-
-        <a class="card" href="/artifacts/runs/">
-            <div class="card-head">
-                <span class="icon">▥</span>
-                <span class="card-title">历史运行</span>
-            </div>
-            <span class="card-desc">所有历史运行目录，可下载旧 trace.zip 在本地用 Playwright 打开。</span>
-            <span class="card-path">/artifacts/runs/</span>
-        </a>
+    <div class="section-title">测试用例及测试轮次</div>
+    <div class="runs" id="runs">
+        <div class="empty">正在读取运行记录…</div>
     </div>
 
-    <div class="section-title">覆盖率报告</div>
-    <div class="grid">
-        <a class="card" href="/coverage/">
-            <div class="card-head">
-                <span class="icon">◧</span>
-                <span class="card-title">前端覆盖率</span>
-            </div>
-            <span class="card-desc">最近一次运行的 V8 精确覆盖率，按运行独立统计，含行内脚本。</span>
-            <span class="card-path">/coverage/</span>
-        </a>
-
-        <a class="card" href="/php-coverage/">
-            <div class="card-head">
-                <span class="icon">◨</span>
-                <span class="card-title">后端覆盖率</span>
-            </div>
-            <span class="card-desc">PHP 覆盖率 HTML 快照，执行 coverage-report --html 后更新。</span>
-            <span class="card-path">/php-coverage/</span>
-        </a>
-
-        <a class="card" href="/reports/">
-            <div class="card-head">
-                <span class="icon">◫</span>
-                <span class="card-title">覆盖率总览</span>
-            </div>
-            <span class="card-desc">同一页切换前端与后端报告；两套口径不同，数字不能相加。</span>
-            <span class="card-path">/reports/</span>
-        </a>
-    </div>
-
-    <div class="hint">
-        常用命令：<code>playwright-run /tmp/flow.js --root /var/www/project_manage_system</code>
-        运行测试；<code>frontend-coverage-report --html</code> 重新生成前端报告；
-        <code>coverage-report --html</code> 发布后端报告。
-        宿主机访问需在启动容器时映射 <code>-p 8080:8080</code>。
-    </div>
-
-    <footer>测试观测入口 · 与项目自身的 80 端口互不影响</footer>
+    <footer>每一轮独立归档；历史轮次可直接回看 Trace 与覆盖率报告。</footer>
 </div>
 
 <script>
 (function () {
-    var box = document.getElementById('latest-run');
-    if (!box) { return; }
+    var runsBox = document.getElementById('runs');
+    var metas = [];
 
     function esc(value) {
         return String(value == null ? '' : value)
@@ -348,59 +388,219 @@
     function absoluteTime(value) {
         if (!value) { return ''; }
         var date = new Date(value);
-        if (isNaN(date.getTime())) { return value; }
+        if (isNaN(date.getTime())) { return String(value); }
         return date.toLocaleString('zh-CN', { hour12: false });
     }
 
-    function durationText(started, finished) {
-        var start = new Date(started).getTime();
-        var end = new Date(finished).getTime();
+    function durationText(meta) {
+        var start = new Date(meta.started_at).getTime();
+        var end = new Date(meta.finished_at).getTime();
+
         if (!isFinite(start) || !isFinite(end) || end < start) { return ''; }
+
         var seconds = Math.round((end - start) / 1000);
+
         if (seconds < 60) { return seconds + ' 秒'; }
-        var minutes = Math.floor(seconds / 60);
-        return minutes + ' 分 ' + (seconds % 60) + ' 秒';
+
+        return Math.floor(seconds / 60) + ' 分 ' + (seconds % 60) + ' 秒';
     }
 
-    fetch('/artifacts/latest/meta.json', { cache: 'no-store' })
-        .then(function (resp) { return resp.ok ? resp.json() : null; })
-        .then(function (meta) {
-            if (!meta) { throw new Error('no meta'); }
+    function durationMs(value) {
+        var ms = Number(value);
 
-            var failed = !!meta.error;
-            var badge = failed
-                ? '<span class="badge err">失败</span>'
-                : '<span class="badge ok">成功</span>';
+        if (!isFinite(ms) || ms < 0) { return ''; }
+        if (ms < 1000) { return ms + 'ms'; }
 
-            var parts = [
-                '<strong>' + esc(meta.run_id || '未命名运行') + '</strong>',
-                badge,
-            ];
+        return (ms / 1000).toFixed(ms < 10000 ? 1 : 0) + 's';
+    }
 
-            var duration = durationText(meta.started_at, meta.finished_at);
-            if (duration) {
-                parts.push('<span>' + duration + '</span>');
-            }
+    function statusBadge(meta) {
+        if (!meta) { return '<span class="badge warn">未完成</span>'; }
+        if (meta.error) { return '<span class="badge err">失败</span>'; }
+        return '<span class="badge ok">成功</span>';
+    }
+
+    function stepStats(meta) {
+        var steps = meta && Array.isArray(meta.steps) ? meta.steps : [];
+        var passed = steps.filter(function (step) { return step.status === 'ok'; }).length;
+        var failed = steps.length - passed;
+        var rate = steps.length > 0 ? (passed / steps.length * 100) : 0;
+
+        return {
+            total: steps.length,
+            passed: passed,
+            failed: failed,
+            rate: rate,
+            rateLabel: steps.length > 0 ? rate.toFixed(2) + '%' : '—',
+        };
+    }
+
+    function runRow(run, index) {
+        var meta = run.meta;
+        var parts = [];
+        var errorLine = '';
+
+        parts.push('<span class="run-id">' + esc(run.name) + '</span>');
+        parts.push(statusBadge(meta));
+
+        if (meta) {
+            var duration = durationText(meta);
+            if (duration) { parts.push('<span>' + esc(duration) + '</span>'); }
 
             var started = absoluteTime(meta.started_at);
-            if (started) {
-                parts.push('<span>' + esc(started) + '</span>');
+            if (started) { parts.push('<span>' + esc(started) + '</span>'); }
+
+            var stats = stepStats(meta);
+            if (stats.total > 0) {
+                parts.push('<span class="badge ' + (stats.failed ? 'err' : 'ok') + '">用例通过率 ' + esc(stats.rateLabel) + '（' + stats.passed + '/' + stats.total + '）</span>');
             }
 
             var lines = meta.coverage && meta.coverage.totals && meta.coverage.totals.lines;
-            if (lines && lines.pct) {
-                parts.push('<span>前端行覆盖 ' + lines.pct + '</span>');
+            if (lines && lines.pct) { parts.push('<span>前端行覆盖 ' + esc(lines.pct) + '</span>'); }
+
+            if (meta.error) {
+                errorLine = '<div class="run-error">失败于：' + esc(meta.error.step || '未知步骤');
+                if (meta.error.message) { errorLine += ' · ' + esc(meta.error.message); }
+                errorLine += '</div>';
+            }
+        } else {
+            errorLine = '<div class="run-note">该轮次没有生成 meta.json（可能被中断），无法回看步骤与结果。</div>';
+        }
+
+        var actions = [];
+
+        if (meta) {
+            var traceHref = '/trace/index.html?trace=' + encodeURIComponent('/artifacts/runs/' + run.name + '/trace.zip');
+            actions.push('<a class="btn" href="' + traceHref + '" target="_blank" rel="noopener">Trace Viewer</a>');
+            actions.push('<button class="btn" type="button" data-steps="' + index + '" aria-expanded="false">测试用例（' + (meta.steps ? meta.steps.length : 0) + '）</button>');
+            actions.push('<a class="btn" href="/artifacts/runs/' + encodeURIComponent(run.name) + '/report/index.html" target="_blank" rel="noopener">覆盖率报告</a>');
+        } else {
+            actions.push('<a class="btn" href="/artifacts/runs/' + encodeURIComponent(run.name) + '/" target="_blank" rel="noopener">产物目录</a>');
+        }
+
+        return '<article class="run" data-run-index="' + index + '">'
+            + '<div class="run-row">'
+            + '<div class="run-main"><div class="run-head">' + parts.join('') + '</div>' + errorLine + '</div>'
+            + '<div class="run-actions">' + actions.join('') + '</div>'
+            + '</div>'
+            + '<div class="steps-panel" hidden></div>'
+            + '</article>';
+    }
+
+    function renderSteps(meta) {
+        var steps = Array.isArray(meta.steps) ? meta.steps : [];
+        var stats = stepStats(meta);
+
+        var html = '<div class="steps-head">'
+            + '<span>测试用例通过率 <strong>' + esc(stats.rateLabel) + '</strong>（' + stats.passed + '/' + stats.total + '）</span>'
+            + '<span>失败 ' + stats.failed + '</span>'
+            + '<span>流程文件：<code>' + esc(meta.flow || '未记录') + '</code></span>'
+            + '</div>';
+
+        if (steps.length === 0) {
+            html += '<div class="run-note">该轮次没有记录步骤。</div>';
+        } else {
+            html += '<ol class="steps-list">';
+            for (var i = 0; i < steps.length; i++) {
+                var step = steps[i];
+                var failed = step.status && step.status !== 'ok';
+                html += '<li class="step' + (failed ? ' error' : '') + '">'
+                    + '<span class="step-icon">' + (failed ? '✕' : '✓') + '</span>'
+                    + '<span class="step-name">' + esc(step.name) + '</span>'
+                    + '<span class="step-time">' + esc(durationMs(step.duration_ms)) + '</span>'
+                    + '</li>';
+            }
+            html += '</ol>';
+        }
+
+        var pageErrors = Array.isArray(meta.page_errors) ? meta.page_errors : [];
+        var consoleErrors = Array.isArray(meta.console_errors) ? meta.console_errors : [];
+
+        if (pageErrors.length || consoleErrors.length) {
+            html += '<div class="run-issues"><strong>运行期错误</strong><ul>';
+            pageErrors.forEach(function (item) {
+                html += '<li>页面：' + esc(item.page_url || '') + ' · ' + esc(item.message || '') + '</li>';
+            });
+            consoleErrors.forEach(function (item) {
+                html += '<li>Console：' + esc(typeof item === 'string' ? item : (item.text || JSON.stringify(item))) + '</li>';
+            });
+            html += '</ul></div>';
+        }
+
+        return html;
+    }
+
+    function bindSteps() {
+        runsBox.addEventListener('click', function (event) {
+            var button = event.target.closest('[data-steps]');
+            if (!button) { return; }
+
+            var index = Number(button.getAttribute('data-steps'));
+            var meta = metas[index];
+            var article = button.closest('.run');
+            var panel = article.querySelector('.steps-panel');
+            var expanded = button.getAttribute('aria-expanded') === 'true';
+
+            if (!meta) { return; }
+
+            if (expanded) {
+                panel.hidden = true;
+                button.setAttribute('aria-expanded', 'false');
+                button.textContent = '测试用例（' + (meta.steps ? meta.steps.length : 0) + '）';
+                return;
             }
 
-            if (failed) {
-                parts.push('<span title="' + esc(meta.error.message || '') + '">失败于：' + esc(meta.error.step || '未知步骤') + '</span>');
+            if (!panel.dataset.rendered) {
+                panel.innerHTML = renderSteps(meta);
+                panel.dataset.rendered = '1';
             }
 
-            box.innerHTML = parts.join('');
-        })
-        .catch(function () {
-            box.innerHTML = '<span>最近一次运行</span><span class="badge warn">暂无运行记录</span>';
+            panel.hidden = false;
+            button.setAttribute('aria-expanded', 'true');
+            button.textContent = '收起测试用例';
         });
+    }
+
+    function fetchMeta(name) {
+        return fetch('/artifacts/runs/' + encodeURIComponent(name) + '/meta.json', { cache: 'no-store' })
+            .then(function (resp) { return resp.ok ? resp.json() : null; })
+            .catch(function () { return null; });
+    }
+
+    function loadRuns() {
+        fetch('/runs-json/', { cache: 'no-store' })
+            .then(function (resp) {
+                if (!resp.ok) { throw new Error('HTTP ' + resp.status); }
+                return resp.json();
+            })
+            .then(function (entries) {
+                var names = (Array.isArray(entries) ? entries : [])
+                    .filter(function (entry) { return entry && entry.type === 'directory' && entry.name; })
+                    .map(function (entry) { return entry.name; })
+                    .sort()
+                    .reverse();
+
+                return Promise.all(names.map(function (name) {
+                    return fetchMeta(name).then(function (meta) { return { name: name, meta: meta }; });
+                }));
+            })
+            .then(function (runs) {
+                metas = runs.map(function (run) { return run.meta; });
+
+                if (runs.length === 0) {
+                    runsBox.innerHTML = '<div class="empty">还没有运行记录，执行一次 playwright-run 后这里会出现测试轮次。</div>';
+                    return;
+                }
+
+                runsBox.innerHTML = runs.map(runRow).join('');
+                bindSteps();
+            })
+            .catch(function (err) {
+                runsBox.innerHTML = '<div class="empty">运行记录读取失败：' + esc(err.message) + '</div>';
+            });
+    }
+
+    loadRuns();
 })();
 </script>
 </body>
