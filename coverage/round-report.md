@@ -157,4 +157,5 @@ harness 镜像在 `/var/www/test_usecase` 提供的是**通用**测试平台骨�
 - 项目测试按约定路径接入：`tests/frontend/flow.js`、`tests/api/run.js`、`tests/cli/run.js`，以及可选的 `fixtures/seed.php` / `fixtures/cleanup.php` / `fixtures/prepare.sh`；结果文件需写入 `$ROUND_DIR` 下的约定 JSON。
 - `state/` 与 `reports/` 是运行期数据，容器重建会清空；每轮报告同时复制到 Playwright 运行目录的 `round/`，可从 8080 回看。
 - 每轮结束由 `run-all.sh` 调用 `round-report` 生成报告。
+- 测试设计方法、接口不可用 / 数据删除 / 回滚等边界清单见 `/usr/local/share/harness/test_usecase/TEST_DESIGN.md`。
 - 覆盖率口径与命令见同目录 `README.md`；前端运行器参数见 `/usr/local/share/harness/playwright/` 与 `README.md`。
