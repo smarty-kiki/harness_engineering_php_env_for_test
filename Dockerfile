@@ -112,10 +112,14 @@ COPY ./shell/coverage-report /usr/local/bin/coverage-report
 COPY ./shell/coverage-reset /usr/local/bin/coverage-reset
 COPY ./shell/frontend-coverage-report /usr/local/bin/frontend-coverage-report
 COPY ./shell/playwright-run /usr/local/bin/playwright-run
-RUN chmod +x /usr/local/bin/coverage-report /usr/local/bin/coverage-reset /usr/local/bin/frontend-coverage-report /usr/local/bin/playwright-run
+COPY ./shell/round-report /usr/local/bin/round-report
+RUN chmod +x /usr/local/bin/coverage-report /usr/local/bin/coverage-reset /usr/local/bin/frontend-coverage-report /usr/local/bin/playwright-run /usr/local/bin/round-report
 
 # 覆盖率详细使用指南：提示词里只留触发条件和入口，细节从这里读取
 COPY ./coverage/README.md /usr/local/share/harness/coverage/README.md
+# 单轮全量报告生成器与契约说明
+COPY ./coverage/round-report.js /usr/local/share/harness/coverage/round-report.js
+COPY ./coverage/round-report.md /usr/local/share/harness/coverage/round-report.md
 # 8080 的覆盖率总览页：同一页切换前端 / 后端报告
 COPY ./config/coverage_reports.html /usr/local/share/harness/coverage/reports/index.html
 # 8080 根地址的观测入口目录页：集中列出实时画面、运行产物、覆盖率与 Trace Viewer

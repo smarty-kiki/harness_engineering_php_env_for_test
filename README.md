@@ -227,6 +227,30 @@ module.exports = async function ({ page, baseUrl, step, screenshot }) {
 - 流程脚本要跨容器重建保留，请放在挂载进容器的项目目录（如 `tests/e2e/`）；放 `/tmp` 的脚本会随容器删除
 - 测试流程若创建了测试账号，跑完要清理数据库与 Redis 会话
 
+### 测试轮次与全量测试报告（round-report）
+
+8080 的观测目录不只是看 Playwright 单次运行：把一轮测试的前端、接口、CLI 三层结果和 PHP / JS 覆盖率合成 `round/` 后，目录页会显示全量通过率、分层通过率、失败详情，并提供「全量测试报告」按钮。
+
+报告生成器随镜像提供：
+
+```bash
+# 在项目的测试工作目录生成 summary.json / summary.md / index.html
+round-report <round_dir> <playwright_run_dir>
+
+# 示例：生成后复制到该轮运行目录，8080 自动展示
+round-report /tmp/my-round /var/log/harness-coverage/playwright/runs/<run_id>
+mkdir -p /var/log/harness-coverage/playwright/runs/<run_id>/round
+cp -r /tmp/my-round/. /var/log/harness-coverage/playwright/runs/<run_id>/round/
+```
+
+目录契约、输入文件、`summary.json` 字段、8080 读取与回退规则、覆盖率链接和测试套件放置要求见 `coverage/round-report.md`（镜像内 `/usr/local/share/harness/coverage/round-report.md`）。
+
+要点：
+
+- 每轮必须有 `round/summary.json` 才会出现「全量用例（N）」与「全量测试报告」；没有时回退为 `meta.json` 的前端步骤信息。
+- 全量报告的覆盖率入口在报告页内，外层行不再单独放覆盖率按钮；`/coverage/` 故意返回 404，前端覆盖率统一用 `/js-coverage/`。
+- 测试用例与造数脚本属于具体项目，应放在挂载进容器的项目目录，不要只放 `/tmp`；harness 只负责运行环境、观测台和报告生成器。
+
 ### 目录与数据
 
 | 内容 | 位置 |

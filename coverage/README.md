@@ -125,6 +125,14 @@ module.exports = async function ({ page, baseUrl, screenshot, step, takeCoverage
 
 `/js-coverage/` 随每次 `playwright-run` 自动更新；`/php-coverage/` 不是实时的，需要在容器内执行 `coverage-report --html` 发布。`/reports/` 只是统一入口，两套报告统计口径不同（前端按单次运行，后端累计到下一次 `coverage-reset`），数字不能相加。
 
+每轮前端 / 接口 / CLI 的全量通过率与 PHP / JS 覆盖率可以合成 `round/` 放进运行目录，8080 目录页会自动读取：
+
+```bash
+round-report <round_dir> <playwright_run_dir>
+```
+
+输入文件、`summary.json` 字段契约、复制发布方式和 8080 的回退规则见 `round-report.md`（镜像内 `/usr/local/share/harness/coverage/round-report.md`）。全量报告内的覆盖率入口在报告页内；`/coverage/` 故意返回 404，前端覆盖率统一使用 `/js-coverage/`。
+
 live view 使用 `x11vnc -viewonly`，只能观察、不能远程操作；需要交互就把操作写进流程文件。trace.zip 也可以下载到本地用 `npx playwright show-trace trace.zip` 打开。
 
 ### 统计口径

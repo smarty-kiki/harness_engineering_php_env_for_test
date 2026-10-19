@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# 单轮全量测试报告：合并前端 / 接口 / CLI 用例与 PHP / JS 覆盖率。
+# 生成 summary.json / summary.md / index.html，复制到 Playwright 运行目录的 round/ 后可由 8080 查看。
+exec node /usr/local/share/harness/coverage/round-report.js "$@"
