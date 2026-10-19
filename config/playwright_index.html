@@ -308,6 +308,23 @@
         white-space: nowrap;
     }
 
+    .case-layer + .case-layer { margin-top: 10px; }
+    .case-layer-title {
+        margin: 8px 0 4px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .case-failure {
+        display: block;
+        margin-top: 2px;
+        color: var(--err);
+        font-size: 11.5px;
+        line-height: 1.45;
+        word-break: break-word;
+    }
+    .step.not-run .step-icon { color: var(--warn); }
+
     .run-issues {
         margin-top: 10px;
         color: var(--muted);
@@ -485,7 +502,9 @@
         if (meta) {
             var traceHref = '/trace/index.html?trace=' + encodeURIComponent('/artifacts/runs/' + run.name + '/trace.zip');
             actions.push('<a class="btn" href="' + traceHref + '" target="_blank" rel="noopener">Trace Viewer</a>');
-            actions.push('<button class="btn" type="button" data-steps="' + index + '" aria-expanded="false">前端用例（' + (meta.steps ? meta.steps.length : 0) + '）</button>');
+            var caseCount = round && round.totals ? round.totals.total : (meta.steps ? meta.steps.length : 0);
+            var caseLabel = (round ? '全量用例（' : '前端用例（') + caseCount + '）';
+            actions.push('<button class="btn" type="button" data-steps="' + index + '" data-case-label="' + caseLabel + '" aria-expanded="false">' + caseLabel + '</button>');
             if (round) {
                 actions.push('<a class="btn" href="/artifacts/runs/' + encodeURIComponent(run.name) + '/round/index.html" target="_blank" rel="noopener">全量测试报告</a>');
             }
@@ -502,38 +521,76 @@
             + '</article>';
     }
 
+    function renderCaseList(cases) {
+        if (!cases.length) {
+            return '<div class="run-note">该层没有记录用例。</div>';
+        }
+
+        var html = '<ol class="steps-list">';
+
+        for (var i = 0; i < cases.length; i++) {
+            var item = cases[i];
+            var failed = item.status === 'failed';
+            var notRun = item.status === 'not_run';
+            var icon = failed ? '✕' : (notRun ? '•' : '✓');
+            var detail = '';
+
+            if (failed || notRun) {
+                var expected = item.expected ? '期望：' + item.expected : '';
+                var actual = item.actual ? '实际：' + item.actual : '';
+                detail = '<span class="case-failure">' + esc([expected, actual].filter(Boolean).join(' · ').slice(0, 600)) + '</span>';
+            }
+
+            html += '<li class="step' + (failed ? ' error' : (notRun ? ' not-run' : '')) + '">'
+                + '<span class="step-icon">' + icon + '</span>'
+                + '<span class="step-name">' + esc(item.name) + detail + '</span>'
+                + '<span class="step-time">' + esc(durationMs(item.duration_ms)) + '</span>'
+                + '</li>';
+        }
+
+        html += '</ol>';
+        return html;
+    }
+
     function renderSteps(meta, round) {
         var steps = Array.isArray(meta.steps) ? meta.steps : [];
         var stats = stepStats(meta);
-
-        var html = '<div class="steps-head">'
-            + '<span>前端用例通过率 <strong>' + esc(stats.rateLabel) + '</strong>（' + stats.passed + '/' + stats.total + '）</span>'
-            + '<span>失败 ' + stats.failed + '</span>'
-            + '<span>流程文件：<code>' + esc(meta.flow || '未记录') + '</code></span>'
-            + '</div>';
+        var html = '';
 
         if (round && round.layers) {
             html += '<div class="steps-head">'
-                + '<span>全量：' + esc(round.layers.frontend.name) + ' ' + round.layers.frontend.passed + '/' + round.layers.frontend.total + '</span>'
-                + '<span>' + esc(round.layers.api.name) + ' ' + round.layers.api.passed + '/' + round.layers.api.total + '</span>'
-                + '<span>' + esc(round.layers.cli.name) + ' ' + round.layers.cli.passed + '/' + round.layers.cli.total + '</span>'
+                + '<span>全量通过率 <strong>' + (round.totals.pass_rate || 0).toFixed(2) + '%</strong>（' + round.totals.passed + '/' + round.totals.total + '）</span>'
+                + '<span>失败 ' + round.totals.failed + '</span>'
+                + '<span>未执行 ' + round.totals.not_run + '</span>'
+                + '<span>流程文件：<code>' + esc(meta.flow || '未记录') + '</code></span>'
                 + '</div>';
-        }
 
-        if (steps.length === 0) {
-            html += '<div class="run-note">该轮次没有记录步骤。</div>';
+            ['frontend', 'api', 'cli'].forEach(function (key) {
+                var layer = round.layers[key];
+                if (!layer) { return; }
+                html += '<div class="case-layer">'
+                    + '<div class="case-layer-title">' + esc(layer.name) + ' ' + layer.passed + '/' + layer.total
+                    + (layer.failed ? ' · 失败 ' + layer.failed : '')
+                    + (layer.not_run ? ' · 未执行 ' + layer.not_run : '')
+                    + '</div>'
+                    + renderCaseList(Array.isArray(layer.cases) ? layer.cases : [])
+                    + '</div>';
+            });
         } else {
-            html += '<ol class="steps-list">';
-            for (var i = 0; i < steps.length; i++) {
-                var step = steps[i];
-                var failed = step.status && step.status !== 'ok';
-                html += '<li class="step' + (failed ? ' error' : '') + '">'
-                    + '<span class="step-icon">' + (failed ? '✕' : '✓') + '</span>'
-                    + '<span class="step-name">' + esc(step.name) + '</span>'
-                    + '<span class="step-time">' + esc(durationMs(step.duration_ms)) + '</span>'
-                    + '</li>';
-            }
-            html += '</ol>';
+            html += '<div class="steps-head">'
+                + '<span>前端用例通过率 <strong>' + esc(stats.rateLabel) + '</strong>（' + stats.passed + '/' + stats.total + '）</span>'
+                + '<span>失败 ' + stats.failed + '</span>'
+                + '<span>流程文件：<code>' + esc(meta.flow || '未记录') + '</code></span>'
+                + '</div>';
+            html += renderCaseList(steps.map(function (step) {
+                return {
+                    name: step.name,
+                    status: step.status === 'ok' ? 'passed' : 'failed',
+                    duration_ms: step.duration_ms,
+                    expected: '',
+                    actual: step.error || '',
+                };
+            }));
         }
 
         var pageErrors = Array.isArray(meta.page_errors) ? meta.page_errors : [];
@@ -570,7 +627,7 @@
             if (expanded) {
                 panel.hidden = true;
                 button.setAttribute('aria-expanded', 'false');
-                button.textContent = '前端用例（' + (meta.steps ? meta.steps.length : 0) + '）';
+                button.textContent = button.getAttribute('data-case-label') || '用例';
                 return;
             }
 
@@ -581,7 +638,7 @@
 
             panel.hidden = false;
             button.setAttribute('aria-expanded', 'true');
-            button.textContent = '收起测试用例';
+            button.textContent = '收起用例';
         });
     }
 
