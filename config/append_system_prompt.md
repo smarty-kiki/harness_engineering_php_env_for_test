@@ -39,7 +39,7 @@ cda 是一个允许你操作浏览器来访问页面、测试页面的工具，*
 - 前端：复制 `/usr/local/share/harness/playwright/flow-example.js` 写流程 → `playwright-run <flow.js>` → `frontend-coverage-report`。
 - 观测入口在 8080（容器需映射 `-p 8080:8080`）：`/` 观测目录页（实时画面与测试轮次，每轮含用例通过率、Trace、覆盖率报告）、`/live` 只读实时画面、`/artifacts/` 产物（含 trace.zip、录像、截图）、`/js-coverage/` 前端 JS 覆盖率报告、`/php-coverage/` 后端 HTML 报告、`/reports/` 前后端覆盖率总览（同一页切换）、`/trace/` Trace Viewer。
 - harness 在 `/var/www/test_usecase` 提供通用测试平台骨架（入口 `run-all.sh`，含通用破坏性工具）；具体项目的测试用例、造数/清理脚本和报告放运行期目录或挂载目录，**不要提交进 harness 仓库**。运行期 `state/`、`reports/` 不持久化，每轮报告会复制到 Playwright 运行目录的 `round/`。
-- 设计测试用例（尤其接口不可用、底层数据删除、命令回滚等破坏性边界）先读 `/usr/local/share/harness/test_usecase/TEST_DESIGN.md`；按入口分层设计、按边界清单列用例，破坏性用例同样计入通过率，不能以覆盖率作为唯一锚点。
+- 设计测试用例（尤其接口不可用、底层数据删除、输入格式 / 长度 / 数量边界、命令回滚等破坏性边界）先读 `/usr/local/share/harness/test_usecase/TEST_DESIGN.md`；按入口分层设计、按边界清单列用例，破坏性用例同样计入通过率，不能以覆盖率作为唯一锚点。
 - 每轮全量报告用 `round-report <round_dir> <playwright_run_dir>` 生成，把整个 `round/` 复制到 Playwright 运行目录后由 8080 自动展示。输入文件、`summary.json` 契约、发布与回退规则见 `/usr/local/share/harness/coverage/round-report.md`。
 - 前端覆盖率按每次 `playwright-run` 独立统计；后端覆盖率累计到下一次 `coverage-reset`。`coverage-reset` 不会删除已经生成的 trace、录像和报告。
 <!-- clickhouse -->
