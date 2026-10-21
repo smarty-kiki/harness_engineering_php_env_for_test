@@ -15,6 +15,7 @@ function usage() {
 
 Options:
   --run <id|dir>     指定运行（默认 latest；可传运行目录名或完整路径）
+  --round <id>       合并该测试轮次记录的全部 Playwright 运行（轮次级覆盖率）
   --root <dir>       项目根目录（默认 $PRJ_HOME 或当前目录）
   --web-root <dir>   URL → 本地文件的根目录（默认 <root>/public）
   --html <dir>       输出 HTML 报告到指定目录
@@ -26,6 +27,7 @@ Options:
 function parseArgs(argv) {
   const options = {
     run: null,
+    round: null,
     root: process.env.PRJ_HOME || process.cwd(),
     webRoot: null,
     html: null,
@@ -51,6 +53,10 @@ function parseArgs(argv) {
         break;
       case '--run':
         options.run = need(argv[i], i);
+        i++;
+        break;
+      case '--round':
+        options.round = need(argv[i], i);
         i++;
         break;
       case '--root':
@@ -108,17 +114,36 @@ function resolveRunDir(options) {
   return fs.realpathSync(candidate);
 }
 
+function resolveRoundEventDirs(options) {
+  const statusFile = path.join(path.resolve(options.coverageDir), 'rounds', options.round, 'status.json');
+
+  if (!fs.existsSync(statusFile)) {
+    throw new Error(`轮次不存在或没有状态文件：${statusFile}`);
+  }
+
+  const status = JSON.parse(fs.readFileSync(statusFile, 'utf-8'));
+  const runs = Array.isArray(status.playwright_runs) ? status.playwright_runs : [];
+  const runsRoot = path.join(path.resolve(options.coverageDir), 'playwright', 'runs');
+
+  return runs.map((run) => {
+    const runDir = run.includes('/') ? path.resolve(run) : path.join(runsRoot, run);
+
+    return path.join(runDir, 'events');
+  }).filter((eventsDir) => fs.existsSync(eventsDir));
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const runDir = resolveRunDir(options);
-  const eventsDir = path.join(runDir, 'events');
+  const eventsDirs = options.round
+    ? resolveRoundEventDirs(options)
+    : [path.join(resolveRunDir(options), 'events')];
 
-  if (!fs.existsSync(eventsDir)) {
-    throw new Error(`运行目录里没有 events/：${runDir}`);
+  if (!options.round && eventsDirs.length === 1 && !fs.existsSync(eventsDirs[0])) {
+    throw new Error(`运行目录里没有 events/：${path.dirname(eventsDirs[0])}`);
   }
 
   const report = await generateCoverageReport({
-    dir: eventsDir,
+    dirs: eventsDirs,
     root: options.root,
     webRoot: options.webRoot,
     showUncovered: options.showUncovered,

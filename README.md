@@ -77,7 +77,7 @@ sudo docker run --rm -ti \
 
 > **关于 Kafka：** Kafka 同属可选组件，默认也不启动（broker 是单机 KRaft 模式，日志窗口与系统提示词里的内容同样跟着启停走）。项目需要 Kafka 时，在启动命令末尾追加 `--enable kafka`，即 `... harness_engineering_php_env start --enable kafka`；两者都要就写 `--enable clickhouse,kafka`。镜像里已装好 broker、kcat（看消息用）与 php 的 rdkafka 扩展——rdkafka 是 php-vibe-coding-frame 的 kafka 队列实现要用的客户端，装了不影响不用它的项目。
 
-> **关于 8080：** 它提供前端测试的实时画面、截图、录像、trace，以及前端和后端两份覆盖率报告。若不需要局域网访问，建议写成 `-p 127.0.0.1:8080:8080`，避免把页面内容暴露到局域网；宿主 8080 已被占用时可换映射（例如 `-p 18080:8080`），访问地址的端口也要相应改。
+> **关于 8080：** 它是测试观测台：实时画面、按轮次组织的测试记录、截图 / 录像 / trace，以及前端和后端覆盖率报告。轮次从写用例阶段就显示，执行过程中持续刷新。若不需要局域网访问，建议写成 `-p 127.0.0.1:8080:8080`，避免把页面内容暴露到局域网；宿主 8080 已被占用时可换映射（例如 `-p 18080:8080`），访问地址的端口也要相应改。
 
 ### 参数说明
 
@@ -85,7 +85,7 @@ sudo docker run --rm -ti \
 |------|------|
 | `--rm` | 容器退出后自动删除，不留残留 |
 | `-p 80:80` | 将容器的 80 端口（nginx）映射到本机 80 端口 |
-| `-p 8080:8080` | 将容器的 8080 端口（测试观测入口：live view / 产物 / 前端与后端覆盖率 / trace）映射到本机，与项目 80 端口互不影响 |
+| `-p 8080:8080` | 将容器的 8080 端口（测试观测台：实时画面 / 测试轮次 / 产物 / 覆盖率 / trace）映射到本机，与项目 80 端口互不影响 |
 | `-p 3306:3306` | 将容器的 3306 端口（MariaDB）映射到本机，方便用本地客户端连接 |
 | `-p 8123:8123` | 将容器的 8123 端口（ClickHouse HTTP 接口）映射到本机，方便用本地客户端连接 |
 | `-p 9092:9092` | 将容器的 9092 端口（Kafka broker）映射到本机，方便用本地客户端连接 |
@@ -179,7 +179,7 @@ playwright-run /path/to/flow.js --linger 30
 frontend-coverage-report --show-uncovered
 ```
 
-`playwright-run --help` 可查看完整参数（`--headless`、`--no-video`、`--root`、`--web-root`、`--base-url`、`--name` 等）；`frontend-coverage-report` 支持 `--html`、`--clover`、`--run`，详见 `coverage/README.md`。
+`playwright-run --help` 可查看完整参数（`--headless`、`--no-video`、`--root`、`--web-root`、`--base-url`、`--name` 等）；`frontend-coverage-report` 支持 `--html`、`--clover`、`--run`（单次运行）与 `--round`（本轮全部运行合并），详见 `coverage/README.md`。
 
 流程文件是一个导出 async 函数的 Node 模块，里面就是标准 Playwright 代码：
 
@@ -208,57 +208,66 @@ module.exports = async function ({ page, baseUrl, step, screenshot }) {
 
 | 地址 | 内容 |
 |------|------|
-| `http://127.0.0.1:8080/` | 观测目录页：实时画面 + 测试轮次（每轮含用例通过率、Trace、覆盖率报告） |
+| `http://127.0.0.1:8080/` | 观测台：实时画面 + 测试轮次（写用例阶段即出现，执行中每 3 秒刷新；含分层进度、审计、覆盖率、Trace 与报告） |
 | `http://127.0.0.1:8080/live` | 只读实时画面（noVNC，不可接管） |
-| `http://127.0.0.1:8080/artifacts/` | 运行产物列表，`latest/` 指向最近一次运行 |
-| `http://127.0.0.1:8080/js-coverage/` | 最近一次运行的前端（JS / V8）HTML 覆盖率报告 |
+| `http://127.0.0.1:8080/rounds/` | 轮次归档：`status.json`、`summary.json`、`report/`、下一轮计划 |
+| `http://127.0.0.1:8080/rounds-json/` | 轮次目录 JSON，观测台用来发现新轮次 |
+| `http://127.0.0.1:8080/artifacts/` | Playwright 产物列表，`latest/` 指向最近一次运行 |
+| `http://127.0.0.1:8080/js-coverage/` | 最近一次运行的前端（JS / V8）HTML 覆盖率报告；整轮合并结果在轮次报告里 |
 | `http://127.0.0.1:8080/php-coverage/` | 后端（PHP）HTML 覆盖率报告快照 |
-| `http://127.0.0.1:8080/reports/` | 覆盖率总览，同一页切换前端 / 后端报告 |
+| `http://127.0.0.1:8080/reports/` | 覆盖率快照总览，同一页切换前端 / 后端报告 |
 | `http://127.0.0.1:8080/trace/` | 最近一次运行的 Trace Viewer |
 
 注意：
 
 - 宿主机访问 8080 需要在启动容器时加 `-p 8080:8080`；没映射时容器内仍可正常测试和生成产物
-- live view 是只读的（x11vnc `-viewonly`），由 supervisor 常驻，容器启动即可用，无需手动启动
+- live view 是只读的（x11vnc `-viewonly`），由 supervisor 常驻，容器启动即可用，无需手动启动；它只显示**有头**浏览器，`--headless` 运行或当前没有浏览器时会看到黑屏。`run-all.sh` 默认有头，便于观察自动化过程
 - Trace Viewer 在每次 `playwright-run` 后启动并指向本次 trace；容器刚启动、还没跑过测试时 `/trace` 不可用。托管入口始终显示最近一次运行，回看历史请到 `/artifacts/runs/<id>/` 下载 `trace.zip`，本地用 `npx playwright show-trace trace.zip` 打开
 - 同一时间只允许一个 `playwright-run`（共用一块 Xvfb 屏幕和 trace viewer），并发运行会直接报错退出
-- 前端覆盖率按「一次运行」统计，不跨运行累计；`coverage-reset` 不会删除已生成的 trace/录像
-- 后端覆盖率 HTML 不会随请求自动刷新：在容器内执行 `coverage-report --html` 后，`/php-coverage/` 与 `/reports/` 才会显示最新快照。`/reports/` 只做统一入口，前后端口径不同（前端按单次运行、后端累计到下一次 `coverage-reset`），数字不能合并相加
+- 覆盖率按整轮统计：PHP 含本轮全部页面 / API / CLI / 队列执行，累计到下一次 `coverage-reset`；JS 含本轮全部页面流程，用 `frontend-coverage-report --round <轮次>` 合并。单次运行报告只用于调试，轮次报告与迭代判断使用合并结果
+- 后端覆盖率 HTML 不会随请求自动刷新：在容器内执行 `coverage-report --html` 后，`/php-coverage/` 与 `/reports/` 才会显示最新快照
 - 运行记录不会自动清理，`runs/` 会持续累积；不需要的历史目录可以手动删除
 - 流程脚本要跨容器重建保留，请放在挂载进容器的项目目录（如 `tests/e2e/`）；放 `/tmp` 的脚本会随容器删除
 - 测试流程若创建了测试账号，跑完要清理数据库与 Redis 会话
 
-### 测试轮次与全量测试报告（round-report）
+### 测试轮次、验收审计与迭代
 
-8080 的观测目录不只是看 Playwright 单次运行：把一轮测试的前端、接口、CLI 三层结果和 PHP / JS 覆盖率合成 `round/` 后，目录页会显示全量通过率、分层通过率、失败详情，并提供「全量测试报告」按钮。
-
-报告生成器随镜像提供：
+测试以「轮次」为单位：写用例前先登记，8080 立即出现轮次；执行中持续更新；结束后归档报告、覆盖率与下一轮计划。
 
 ```bash
-# 在项目的测试工作目录生成 summary.json / summary.md / index.html
-round-report <round_dir> <playwright_run_dir>
+# 写用例前登记；有上一轮计划就一起传入
+round-status start --name=checkout --suite-dir=/var/www/test_usecase \
+    --plan=/var/www/test_usecase/reports/rounds/<上一轮>/next-round-plan.md
 
-# 示例：生成后复制到该轮运行目录，8080 自动展示
-round-report /tmp/my-round /var/log/harness-coverage/playwright/runs/<run_id>
-mkdir -p /var/log/harness-coverage/playwright/runs/<run_id>/round
-cp -r /tmp/my-round/. /var/log/harness-coverage/playwright/runs/<run_id>/round/
+# 写 tests/ 下的页面 / 接口 / CLI 用例，然后一条命令执行整轮
+/var/www/test_usecase/run-all.sh
+
+# 查看趋势并生成下一轮计划
+coverage-trend
+coverage-trend --plan /var/www/test_usecase/reports/rounds/<轮次>/next-round-plan.md
 ```
 
-目录契约、输入文件、`summary.json` 字段、8080 读取与回退规则、覆盖率链接和测试套件放置要求见 `coverage/round-report.md`（镜像内 `/usr/local/share/harness/coverage/round-report.md`）。
+每轮必须满足：
+
+- **页面优先**：同一行为先写页面用例；接口 / CLI 只补页面不可达分支，并用 `via_page` 或 `unreachable_reason` 说明来源。
+- **写数据必查库**：新增 / 修改 / 删除 / 状态流转以及应被拒绝的写入，操作后都要查询数据库确认；用例写 `mutates_data: true` 与非空 `db_verification`。可用 `/var/www/test_usecase/fixtures/db_check.php`。
+- **覆盖率整轮统计**：报告里的 PHP 覆盖本轮全部入口，JS 合并本轮全部 Playwright 流程，不能前端只算页面测试、后端只算接口 / CLI。
+
+`run-all.sh` 默认开启两项审计（`AUDIT_STRICT=1`），审计不通过或存在失败 / 未执行用例时退出码为 1。每轮结束按报告中的未覆盖行和 `coverage-trend` 补下一轮，页面可达的优先补页面流程；连续 2 轮 PHP 业务口径与 JS 增量都小于 0.5 个百分点，或未覆盖行已没有可通过现有入口触达的代码时停止。
 
 要点：
 
-- 每轮必须有 `round/summary.json` 才会出现「全量用例（N）」与「全量测试报告」；没有时回退为 `meta.json` 的前端步骤信息。
-- 全量报告的覆盖率入口在报告页内，外层行不再单独放覆盖率按钮；`/coverage/` 故意返回 404，前端覆盖率统一用 `/js-coverage/`。
+- 轮次注册目录是 8080 与趋势工具的统一读取位置：`/var/log/harness-coverage/rounds/<轮次>/`，包含 `status.json`、`summary.json` 与 `report/`；旧的 Playwright `round/` 目录仍兼容，但不再是权威来源。
 - 镜像在 `/var/www/test_usecase` 提供**通用**测试平台骨架（入口 `run-all.sh`）；具体项目的测试用例、造数脚本与报告属于项目自身，运行时放入该目录或通过挂载提供，**不要提交进 harness 仓库**。
-- 测试设计方法、异常/破坏性边界清单和统计约定见 `test_usecase/TEST_DESIGN.md`（镜像内 `/usr/local/share/harness/test_usecase/TEST_DESIGN.md`）。
-- `state/` 与 `reports/` 是运行期数据，容器重建会清空；每轮报告会复制到 Playwright 运行目录的 `round/` 供 8080 回看。
+- 测试设计方法、页面优先、落库校验、异常 / 破坏性边界清单和迭代停止条件见 `test_usecase/TEST_DESIGN.md`（镜像内 `/usr/local/share/harness/test_usecase/TEST_DESIGN.md`）。
+- 报告输入、`summary.json` 字段、审计规则、发布与回退见 `coverage/round-report.md`；覆盖率命令、轮次状态与前端合并统计见 `coverage/README.md`。
 - 需要调整通用编排或工具时改 harness 仓库的 `test_usecase/` 并重新构建镜像；项目专用文件不要改这里。
 
 ### 目录与数据
 
 | 内容 | 位置 |
 |------|------|
+| 轮次注册目录（状态 / 摘要 / 报告 / 补测计划） | `/var/log/harness-coverage/rounds/<轮次>/` |
 | PHP 覆盖率原始事件 | `/var/log/harness-coverage/*.ndjson` |
 | PHP 覆盖率 HTML 报告 | `/var/log/harness-coverage/php-report/` |
 | Playwright 运行产物（trace/录像/截图/events/report/meta） | `/var/log/harness-coverage/playwright/runs/<时间戳>-<名称>/` |
@@ -277,6 +286,8 @@ cp -r /tmp/my-round/. /var/log/harness-coverage/playwright/runs/<run_id>/round/
 - **前端覆盖率没有数据**：确认流程确实打开了项目页面；外链脚本要能按 URL 映射到 `<PRJ_HOME>/public/` 下的文件；页面加载过快时可手动 `await takeCoverage('原因')`
 - **`/php-coverage/` 为空或只有目录列表**：还没有发布后端 HTML 报告，在容器内执行 `coverage-report --html`；`/reports/` 里的后端标签页同理
 - **`/reports/` 打开就绪但报告是旧的**：后端报告是生成时的快照，重新执行 `coverage-report --html`；前端报告在每次 `playwright-run` 后自动更新
+- **8080 看不到刚登记的轮次**：确认登记时带了 `--suite-dir`，且 `/var/log/harness-coverage/rounds/<轮次>/status.json` 存在；观测台读取 `/rounds-json/`，执行中的轮次每 3 秒刷新
+- **轮次报告显示审计未通过**：页面 / 接口用例缺 `via_page` / `unreachable_reason`，或写数据用例缺 `db_verification`；按报告中的 violation 清单补齐，迁移旧用例时可临时设 `AUDIT_STRICT=0`
 - **流程失败想定位**：看运行目录里的 `meta.json`（`error.step`、`steps`）和 `trace.zip`；运行器退出码为 `1`
 - **第二个 `playwright-run` 直接报错**：同一时间只允许一个运行，等上一个结束
 - **构建时 Chromium 下载失败**：检查构建机网络；Playwright 浏览器和系统依赖在构建阶段下载，运行阶段不需要外网

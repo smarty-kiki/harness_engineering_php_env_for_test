@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# 轮次状态：开始时登记轮次，执行中更新阶段/计数，结束时写入报告摘要。
+# 状态文件在 /var/log/harness-coverage/rounds/<round_id>/status.json，8080 实时读取。
+exec node /usr/local/share/harness/coverage/round-status.js "$@"

@@ -104,22 +104,17 @@ RUN chown root:root /bin/start && \
 
 # 黑盒覆盖率工具：采集器 + 汇总/重置命令。
 # 采集器由 start.sh 写入 PHP 的 auto_prepend_file，覆盖 FPM、CLI 与队列 worker。
-RUN mkdir -p /usr/local/lib/harness/coverage /usr/local/share/harness/coverage/reports /var/log/harness-coverage/playwright/runs /var/log/harness-coverage/php-report && \
-    chmod 0777 /var/log/harness-coverage /var/log/harness-coverage/playwright /var/log/harness-coverage/playwright/runs /var/log/harness-coverage/php-report
-COPY ./shell/coverage_prepend.php /usr/local/lib/harness/coverage/coverage_prepend.php
-COPY ./shell/coverage_report.php /usr/local/lib/harness/coverage/coverage_report.php
-COPY ./shell/coverage-report /usr/local/bin/coverage-report
-COPY ./shell/coverage-reset /usr/local/bin/coverage-reset
-COPY ./shell/frontend-coverage-report /usr/local/bin/frontend-coverage-report
-COPY ./shell/playwright-run /usr/local/bin/playwright-run
-COPY ./shell/round-report /usr/local/bin/round-report
-RUN chmod +x /usr/local/bin/coverage-report /usr/local/bin/coverage-reset /usr/local/bin/frontend-coverage-report /usr/local/bin/playwright-run /usr/local/bin/round-report
+RUN mkdir -p /usr/local/lib/harness/coverage /usr/local/share/harness/coverage/reports /var/log/harness-coverage/playwright/runs /var/log/harness-coverage/php-report /var/log/harness-coverage/rounds && \
+    chmod 0777 /var/log/harness-coverage /var/log/harness-coverage/playwright /var/log/harness-coverage/playwright/runs /var/log/harness-coverage/php-report /var/log/harness-coverage/rounds
+COPY ./shell/coverage_prepend.php ./shell/coverage_report.php /usr/local/lib/harness/coverage/
+COPY --chmod=755 ./shell/coverage-report ./shell/coverage-reset ./shell/frontend-coverage-report \
+     ./shell/playwright-run ./shell/round-report ./shell/round-status ./shell/coverage-trend \
+     /usr/local/bin/
 
-# 覆盖率详细使用指南：提示词里只留触发条件和入口，细节从这里读取
-COPY ./coverage/README.md /usr/local/share/harness/coverage/README.md
-# 单轮全量报告生成器与契约说明
-COPY ./coverage/round-report.js /usr/local/share/harness/coverage/round-report.js
-COPY ./coverage/round-report.md /usr/local/share/harness/coverage/round-report.md
+# 覆盖率指南、轮次注册、实时状态、趋势分析与全量报告
+COPY ./coverage/README.md ./coverage/round-report.md \
+     ./coverage/round-state.js ./coverage/round-status.js ./coverage/coverage-trend.js ./coverage/round-report.js \
+     /usr/local/share/harness/coverage/
 
 # 通用综合测试平台骨架：目录结构、单轮编排与通用破坏性工具。
 # 具体项目的测试用例、造数脚本与报告不随镜像发布，运行时放入 /var/www/test_usecase。

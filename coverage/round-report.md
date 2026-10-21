@@ -1,87 +1,137 @@
-# 单轮全量测试报告与 8080 观测台
+# 轮次报告、验收审计与 8080 实时观测
 
-本文说明「一轮测试」如何把前端、接口、CLI 三层结果和 PHP / JS 覆盖率合成一份报告，以及 8080 观测台如何读取和展示它。测试套件本身是项目相关的，不随 harness 镜像发布；**报告生成器与观测台属于 harness，随镜像提供**。
+测试以「轮次」为单位：写用例前登记轮次，执行中持续更新状态，结束后把前端 / 接口 / CLI 结果、PHP / JS 整轮覆盖率、页面穿透与落库校验审计合成一份报告并归档。测试套件本身属于项目，不随 harness 镜像发布；**轮次状态、报告生成与观测台属于 harness，随镜像提供**。
 
 ## 1. 数据流
 
 ```
-测试套件执行
-  ├─ 前端 Playwright ──> frontend-cases.json + Playwright 运行目录（meta.json / trace.zip / 截图 / 录像）
+round-status start（写用例阶段）
+        │
+        ▼
+/var/log/harness-coverage/rounds/<轮次>/status.json   ← 8080 每 3 秒轮询
+        │
+测试套件执行（run-all.sh 复用 active 轮次）
+  ├─ 前端 Playwright ──> frontend-cases.json + 运行目录（meta.json / trace.zip / 截图 / 录像 / events）
   ├─ 接口测试 ────────> api-results.json
   ├─ CLI 测试 ────────> cli-results.json
   └─ 覆盖率命令 ──────> php-coverage-full.txt / php-coverage-business.txt / js-coverage.txt
-                              │
-                              ▼
-                    round-report <round_dir> <run_dir>
-                              │
-                              ▼
-              round_dir/summary.json + summary.md + index.html
-                              │
-                     复制到运行目录的 round/
-                              │
-                              ▼
-              8080 观测台（/）自动读取并展示该轮
+        │
+        ▼
+round-report <round_dir> <run_dir>
+        │
+        ▼
+summary.json / summary.md / index.html
+        │
+        ├─ round-status publish  → 轮次注册目录的 summary.json（趋势立即读取）
+        ├─ coverage-trend        → 下一轮计划
+        └─ round-status finish   → summary + report/ 归档，状态置为 done
+        │
+        ▼
+8080 /  +  /rounds/<轮次>/report/index.html  +  coverage-trend
 ```
 
-报告生成器有两份等价入口：
+报告生成器入口：
 
 - 容器命令：`round-report <round_dir> [<playwright_run_dir>]`
-- 镜像内源码：`/usr/local/share/harness/coverage/round-report.js`（也可直接 `node` 执行）
+- 镜像内源码：`/usr/local/share/harness/coverage/round-report.js`
 
-测试套件可以在容器没有安装新命令时直接调用源码路径；二者输出的格式一致。
+轮次注册与状态命令：
 
-## 2. 输入文件
+- `round-status start|update|heartbeat|active|publish|finish|show|list`
+- 源码：`/usr/local/share/harness/coverage/round-status.js`，状态模型：`round-state.js`
 
-`round_dir` 是本轮报告的工作目录，需要以下文件（缺失的层会被记为 1 条「未执行」用例，仍计入通过率分母）：
+## 2. 轮次输入
+
+`round_dir` 是本轮报告的工作目录（`reports/rounds/<轮次>/`），需要以下文件。**某一层结果文件缺失时，报告会把该层记为 1 条「未执行」用例，仍计入通过率分母**，不会悄悄从分母里消失。
 
 | 文件 | 来源 | 说明 |
 |------|------|------|
-| `frontend-cases.json` | 前端测试 | `{ cases: [{ name, status, expected, actual, duration_ms }] }`，`status` 为 `passed` / `failed` / `not_run` |
+| `frontend-cases.json` | 页面测试 | `{ cases: [...] }`；缺失时退化为读取 Playwright `meta.json` 的 `steps` |
 | `api-results.json` | 接口测试 | 同上 |
 | `cli-results.json` | CLI 测试 | 同上 |
-| `php-coverage-full.txt` | `coverage-report` 完整口径 | 需含 `行覆盖率：xx.xx%（覆盖数 / 总数）` |
-| `php-coverage-business.txt` | `coverage-report --exclude view,...` 业务口径 | 同上 |
-| `js-coverage.txt` | `frontend-coverage-report` | 需含 `合计 xx.xx% (覆盖数/总数)` |
-| `php-coverage/` | PHP HTML 报告目录 | 供报告内「PHP HTML 报告」链接使用 |
-| `js-coverage/` | JS HTML 报告目录 | 供报告内「JS HTML 报告」链接使用 |
-| `php-uncovered.txt` / `js-uncovered.txt` | 未覆盖行文本 | 供报告内链接使用 |
+| `php-coverage-full.txt` | `coverage-report --only-summary` | 需含 `行覆盖率：xx.xx%（覆盖数 / 总数）` |
+| `php-coverage-business.txt` | `coverage-report --exclude view,...` | 业务口径；轮次主展示使用这一份 |
+| `js-coverage.txt` | `frontend-coverage-report --round <轮次>` | 需含 `合计 xx.xx% (覆盖数/总数)` |
+| `php-coverage/` / `js-coverage/` | HTML 报告目录 | 报告内入口；缺失时按钮 404 |
+| `php-uncovered.txt` / `js-uncovered.txt` | 未覆盖行文本 | 生成下一轮建议 |
+| `frontend-meta.json` | 运行信息副本（可选） | `run_dir/meta.json` 的归档副本 |
 
-`<playwright_run_dir>` 可选；传入后会从该目录的 `meta.json` 读取 `run_id` 与流程文件名，用于报告里的 Trace Viewer 链接和运行信息。若 `frontend-cases.json` 不存在，会退化为读取 `meta.json` 的 `steps`（只看前端）。
+用例对象：
 
-## 3. 生成与发布
+```json
+{
+  "layer": "api",
+  "name": "接口：创建项目后落库",
+  "status": "passed",
+  "duration_ms": 32,
+  "expected": "项目创建成功且数据库存在记录",
+  "actual": "接口返回成功，数据库记录字段正确",
+  "via_page": "页面：创建项目",
+  "mutates_data": true,
+  "db_verification": {
+    "passed": true,
+    "checks": [
+      {"table": "project", "id": 900001, "expect": "name=测试项目, status=1", "actual": "name=测试项目, status=1"}
+    ]
+  }
+}
+```
+
+- `status`：`passed` / `failed` / `not_run`；失败和未执行必须写 `expected` 与 `actual`。
+- **页面优先**：接口 / CLI 用例二选一写 `via_page`（页面用例名，必须能在本轮前端用例中找到）或 `unreachable_reason`（页面不可达的具体原因）。
+- **落库校验**：任何写数据的用例（新增、修改、删除、状态流转，以及应被拒绝的写入）写 `mutates_data: true`，并提供非空的 `db_verification`。可以是说明字符串、检查项数组，或 `{ checks: [...], detail, actual, passed }` 对象；仅接口返回成功不算校验。
+- 前端 `frontend-cases.json` 由流程在完成页面操作与数据库校验后写入；接口 / CLI 测试同理。
+
+## 3. 生成、发布与归档
+
+`run-all.sh` 已经串好整个流程，通常无需手动执行：
 
 ```bash
-# 1. 在测试套件的工作目录生成 summary.json / summary.md / index.html
+round-status start --name=<名称> --suite-dir=/var/www/test_usecase   # 写用例阶段，8080 立即出现
+/var/www/test_usecase/run-all.sh
+```
+
+`run-all.sh` 会复用 active 轮次，依次更新 `preparing → seeding → frontend → api → cli → coverage → reporting → done`，然后：
+
+1. 调用 `round-report` 生成本轮报告；
+2. `round-status publish` 把 `summary.json` 写入轮次注册目录；
+3. `coverage-trend` 生成趋势与 `next-round-plan.md`；
+4. `round-status finish` 把 `summary.json` 与整个 `report/` 目录归档，状态置为 `done`。
+
+手动生成与归档：
+
+```bash
+# 1. 生成报告（round_dir 是工作目录；run_dir 可选）
 round-report /tmp/my-round /var/log/harness-coverage/playwright/runs/<run_id>
 
-# 2. 把可发布的报告复制进该轮 Playwright 运行目录
-mkdir -p /var/log/harness-coverage/playwright/runs/<run_id>/round
-cp -r /tmp/my-round/summary.json \
-      /tmp/my-round/summary.md \
-      /tmp/my-round/index.html \
-      /tmp/my-round/php-coverage \
-      /tmp/my-round/js-coverage \
-      /tmp/my-round/php-uncovered.txt \
-      /tmp/my-round/js-uncovered.txt \
-      /var/log/harness-coverage/playwright/runs/<run_id>/round/
+# 2. 发布摘要（趋势工具与 8080 读取），需要严格审计就加 --strict-page-first / --strict-data-check
+round-status publish --id=<轮次> --summary=/tmp/my-round/summary.json
+
+# 3. 生成下一轮计划
+coverage-trend --plan /tmp/my-round/next-round-plan.md
+
+# 4. 归档报告并结束轮次
+round-status finish --id=<轮次> --summary=/tmp/my-round/summary.json \
+    --report-dir=/tmp/my-round \
+    --report-url=/rounds/<轮次>/report/index.html
 ```
 
 注意：
 
-- `round/` 是约定目录名，8080 只认这个位置。
+- `finish` 会整体同步 `--report-dir` 到 `/var/log/harness-coverage/rounds/<轮次>/report/`，包括覆盖率 HTML、未覆盖行与补测计划；重新归档会替换旧报告，不会覆盖其他轮次。
+- `publish` 只同步，不改变轮次状态，适合在趋势分析前先写入摘要。
+- 严格审计：`run-all` 默认 `AUDIT_STRICT=1`；单独执行 `round-report` 时用 `--strict-page-first` 与 `--strict-data-check`（或 `PAGE_FIRST_STRICT=1` / `DATA_CHECK_STRICT=1`）。未通过时报告仍会生成，但退出码为 1，`run-all` 最终失败。
+- 兼容旧观测台：`run-all` 仍会把报告复制到 Playwright 运行目录的 `round/`（约定目录）。轮次注册目录才是 8080 与趋势工具的权威来源；没有 `round/` 不影响轮次展示。
 - `summary.json` 必须能通过 `JSON.parse`；发布前可用 `node -e "JSON.parse(require('fs').readFileSync('...','utf8'))"` 校验。
-- 覆盖率 HTML 目录要一起复制，否则报告内的覆盖率按钮会 404。
-- 报告是测试完成后的快照；重新跑一轮就重新生成并复制，**不要覆盖历史轮次的 round/**。
-- 没有 `round/summary.json` 的运行目录仍会显示在 8080 上，但只能回退到 `meta.json` 的前端步骤与前端覆盖率；不会显示「全量用例」和「全量测试报告」按钮。
 
 ## 4. summary.json 契约
 
-8080 观测台按以下字段读取（字段名不能改）：
+8080 观测台、`coverage-trend` 与下一轮计划按以下字段读取（字段名不能改）：
 
 ```json
 {
-  "round_id": "20261020-003243",
-  "finished_at": "2026/10/20 00:37:00",
+  "round_id": "20261021-101500",
+  "finished_at": "2026/10/21 10:25:00",
   "totals": {
     "total": 193,
     "passed": 188,
@@ -93,6 +143,7 @@ cp -r /tmp/my-round/summary.json \
   "layers": {
     "frontend": {
       "name": "前端",
+      "available": true,
       "total": 137,
       "passed": 134,
       "failed": 3,
@@ -101,24 +152,55 @@ cp -r /tmp/my-round/summary.json \
       "cases": [
         {
           "layer": "前端",
-          "name": "系统仓库：无系统空态不产生前端运行时错误",
-          "status": "failed",
-          "duration_ms": 1200,
-          "expected": "期望没有前端运行时错误",
-          "actual": "Cannot read properties of null (reading 'addEventListener')"
+          "name": "页面：创建项目",
+          "status": "passed",
+          "mutates_data": true,
+          "db_verification": {"passed": true, "detail": "project 表记录字段正确"}
         }
       ]
     },
-    "api": { "name": "接口", "cases": [] },
-    "cli": { "name": "CLI", "cases": [] }
+    "api": {"name": "接口", "available": true, "cases": []},
+    "cli": {"name": "CLI", "available": false, "cases": []}
   },
   "coverage": {
-    "php_full": { "percent": 42.16, "covered": 5819, "total": 13796 },
-    "php_business": { "percent": 81.60, "covered": 5819, "total": 7129 },
-    "js": { "percent": 60.39, "covered": 6299, "total": 10574 }
+    "php_full": {"percent": 42.16, "covered": 5819, "total": 13796},
+    "php_business": {"percent": 81.60, "covered": 5819, "total": 7129},
+    "js": {"percent": 60.39, "covered": 6299, "total": 10574}
+  },
+  "coverage_scope": {
+    "php": "本轮全部页面 / API / CLI / 队列执行",
+    "js": "本轮全部 Playwright 页面流程",
+    "php_layers": ["frontend", "api", "cli", "worker"],
+    "js_layers": ["frontend"],
+    "playwright_runs": ["20261021-101000-round"]
+  },
+  "coverage_delta": {
+    "previous_round_id": "20261020-203000",
+    "php_business": 2.35,
+    "js": 4.1
+  },
+  "page_first": {
+    "frontend_cases": 137,
+    "api_cli_cases": 56,
+    "via_page": 41,
+    "unreachable": 15,
+    "unclassified": 0,
+    "compliant": true,
+    "violations": []
+  },
+  "data_check": {
+    "mutating_cases": 48,
+    "verified": 48,
+    "unverified": 0,
+    "compliant": true,
+    "violations": []
+  },
+  "next_round_suggestions": {
+    "php": ["controller/foo.php: 未覆盖行 ……"],
+    "js": ["public/assets/app.js: 未覆盖行 ……"]
   },
   "playwright": {
-    "run_id": "20261020-010000-test-20261020-010000",
+    "run_id": "20261021-101000-round",
     "flow": "/path/to/flow.js",
     "run_dir": "/var/log/harness-coverage/playwright/runs/..."
   }
@@ -127,35 +209,43 @@ cp -r /tmp/my-round/summary.json \
 
 说明：
 
-- `pass_rate` 与 `percent` 都是 **0–100 的百分数**，不是 0–1 小数。
+- `pass_rate` 与 `percent` 都是 **0–100 的百分数**，不是 0–1 小数；`coverage_delta` 是百分点差（`+2.35` 表示提高 2.35 个百分点）。
 - `totals.total` 是三层用例总数；未执行用例计入总数，所以通过率 = `passed / total`。
-- `layers` 的三层都要有 `name`、`passed`、`total`、`cases`；`cases` 内每条要有 `layer`、`name`、`status`。失败/未执行用例建议带 `expected` 与 `actual`，观测台展开时会显示。
-- `coverage` 按上表提供两份 PHP 口径；完整口径只作参考，业务口径用于主展示。
-- `issues` 是 `cases` 中非 `passed` 项的汇总，供报告表格使用；它不是「已知问题」区，问题本身就是失败用例。
+- `layers` 的三层都要有 `name`、`available`、`passed`、`total`、`cases`；`cases` 内每条要有 `layer`、`name`、`status`。缺失层由报告补一条 `synthetic` 的 1 条未执行用例。
+- `page_first` 与 `data_check` 的 `violations` 是未达标的用例清单；`compliant` 为 false 时，严格模式会让报告失败。
+- `coverage_scope` 说明覆盖率不是按测试层切开：PHP 含页面 / API / CLI / 队列，JS 含本轮全部页面流程。
+- `next_round_suggestions` 由未覆盖行文本生成，`coverage-trend --plan` 用它写下一轮计划。
+- `issues` 是 `cases` 中非 `passed` 项的汇总；问题本身就是失败用例，不另设“已知问题”区。
 
-## 5. 8080 观测台行为
+## 5. 8080 实时观测
+
+观测台把「轮次注册目录」与旧的 Playwright 运行目录合并展示：
 
 | 地址 | 数据来源与行为 |
 |------|----------------|
-| `/` | 每轮一行；读取运行目录 `meta.json` 与 `round/summary.json`。有 summary 时显示全量通过率、PHP/JS 覆盖率、失败/未执行数，按钮为 `Trace Viewer`、`全量用例（N）`、`全量测试报告`；无 summary 时回退为前端用例信息 |
-| `/runs-json/` | 运行目录列表 JSON，目录页用它发现新轮次 |
-| `/artifacts/runs/<run_id>/round/index.html` | 全量测试报告；报告内的 PHP / JS 覆盖率入口在此页内，外层不再单独放覆盖率按钮 |
+| `/` | 每轮一张卡片。轮次来自 `/rounds-json/`，读取 `status.json`；已归档的显示全量通过率、PHP/JS 覆盖率、页面穿透 / 落库审计、分层计数与报告按钮。执行中的轮次每 3 秒刷新，显示当前阶段、运行时长、分层进度、实时覆盖率与心跳 |
+| `/rounds-json/` | 轮次目录 JSON，观测台发现新轮次 |
+| `/rounds/<轮次>/status.json` | 实时状态：`state`、`layers`、`coverage`、`page_first`、`data_check` 等 |
+| `/rounds/<轮次>/summary.json` | 归档摘要（趋势工具与观测台读取） |
+| `/rounds/<轮次>/report/index.html` | 全量测试报告，含覆盖率入口、审计、失败清单与下一轮建议 |
+| `/rounds/<轮次>/plan.md` | 开始轮次时登记的补测计划 |
+| `/rounds-json/` + `/runs-json/` | 观测台合并两类来源；被轮次引用的 Playwright 运行不再重复成卡片 |
 | `/artifacts/runs/<run_id>/trace.zip` | Playwright Trace；观测台链接为 `/trace/index.html?trace=/artifacts/runs/<run_id>/trace.zip` |
-| `/js-coverage/` | 最近一次 Playwright 运行的 JS 覆盖率快照 |
+| `/js-coverage/` | 最近一次 Playwright 运行的 JS 覆盖率快照；整轮合并覆盖率看轮次报告 |
 | `/php-coverage/` | 最近一次 `coverage-report --html` 发布的 PHP 覆盖率快照 |
-| `/reports/` | 前端 / 后端覆盖率总览，同一页切换 |
-| `/coverage/` | **故意不提供**（返回 404）；旧的 `/coverage/` 路由没有重定向，前端覆盖率统一用 `/js-coverage/` |
+| `/reports/` | PHP / JS 覆盖率快照总览，同一页切换 |
+| `/coverage/` | **故意不提供**（返回 404）；前端覆盖率统一用 `/js-coverage/` 或轮次报告 |
 
-展开「全量用例（N）」时按 `前端 / 接口 / CLI` 分组展示全部用例；失败或未执行项显示「期望 / 实际」。收起后的按钮文案是「收起用例」。
+**轮次从编写用例阶段就存在**：执行 `round-status start` 后，即使还没跑任何测试，8080 也会出现「编写用例中」的卡片；执行 `run-all` 后状态、分层计数、覆盖率和当前步骤持续更新，直到 `done` / `failed`。不需要等报告生成完才看到记录。
 
-## 6. 通用测试平台骨架与项目测试
+打开「用例」时按 `前端 / 接口 / CLI` 分组展示：失败或未执行项显示期望 / 实际；接口 / CLI 用例显示 `via_page` 或不可达原因；写数据用例显示「落库已校验 / 未校验」。旧运行目录没有 `summary.json` 时，回退为 `meta.json` 的前端步骤与前端覆盖率，不显示全量用例按钮。
 
-harness 镜像在 `/var/www/test_usecase` 提供的是**通用**测试平台骨架：
+## 6. 通用测试平台与项目测试
 
-- 目录结构、`run-all.sh` 单轮编排、`fixtures/rollback_probe.sh`、`fixtures/delete_row.php` 属于通用工具，随镜像发布。
-- **具体项目的测试用例、造数脚本、清理脚本和报告不进入 harness 仓库**；把它们放在运行期目录或挂载进容器的项目目录（如项目的 `tests/e2e/`），不要只放 `/tmp`。
-- 项目测试按约定路径接入：`tests/frontend/flow.js`、`tests/api/run.js`、`tests/cli/run.js`，以及可选的 `fixtures/seed.php` / `fixtures/cleanup.php` / `fixtures/prepare.sh`；结果文件需写入 `$ROUND_DIR` 下的约定 JSON。
-- `state/` 与 `reports/` 是运行期数据，容器重建会清空；每轮报告同时复制到 Playwright 运行目录的 `round/`，可从 8080 回看。
-- 每轮结束由 `run-all.sh` 调用 `round-report` 生成报告。
-- 测试设计方法、接口不可用 / 数据删除 / 回滚等边界清单见 `/usr/local/share/harness/test_usecase/TEST_DESIGN.md`。
-- 覆盖率口径与命令见同目录 `README.md`；前端运行器参数见 `/usr/local/share/harness/playwright/` 与 `README.md`。
+harness 镜像在 `/var/www/test_usecase` 提供**通用**测试平台骨架：
+
+- 目录结构、`run-all.sh` 单轮编排、`fixtures/db_check.php`、`fixtures/delete_row.php`、`fixtures/rollback_probe.sh` 属于通用工具，随镜像发布。
+- **具体项目的测试用例、造数脚本、清理脚本和报告不进入 harness 仓库**；放在运行期目录或挂载进容器的项目目录（如项目的 `tests/e2e/`），不要只放 `/tmp`。
+- 项目测试按约定路径接入：`tests/frontend/flow.js`、`tests/api/run.js`、`tests/cli/run.js`，以及可选的 `fixtures/seed.php` / `fixtures/cleanup.php` / `fixtures/prepare.sh`；结果文件写入 `$ROUND_DIR` 下的约定 JSON。
+- `reports/` 是运行期数据，容器重建会清空；每轮报告归档到 `/var/log/harness-coverage/rounds/`，8080 与趋势工具读取这一份。
+- 测试设计方法、页面优先、落库校验、异常 / 破坏性边界与迭代停止条件见 `/usr/local/share/harness/test_usecase/TEST_DESIGN.md`。

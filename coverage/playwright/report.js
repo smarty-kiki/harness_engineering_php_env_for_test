@@ -15,22 +15,26 @@ const libCoverage = require('istanbul-lib-coverage');
 const libReport = require('istanbul-lib-report');
 const reports = require('istanbul-reports');
 
-function loadEvents(dir) {
-  if (!fs.existsSync(dir)) return [];
-
-  const names = fs
-    .readdirSync(dir)
-    .filter((name) => name.endsWith('.json'))
-    .sort();
-
+function loadEvents(target) {
+  // 一轮可能包含多次 Playwright 运行；传入目录数组时合并所有事件
+  const dirs = Array.isArray(target) ? target : [target];
   const events = [];
 
-  for (const name of names) {
-    try {
-      const event = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf-8'));
-      if (Array.isArray(event?.scripts)) events.push(event);
-    } catch {
-      // 跳过写到一半的文件；报告不应因单个坏文件整体失败
+  for (const dir of dirs) {
+    if (!dir || !fs.existsSync(dir)) continue;
+
+    const names = fs
+      .readdirSync(dir)
+      .filter((name) => name.endsWith('.json'))
+      .sort();
+
+    for (const name of names) {
+      try {
+        const event = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf-8'));
+        if (Array.isArray(event?.scripts)) events.push(event);
+      } catch {
+        // 跳过写到一半的文件；报告不应因单个坏文件整体失败
+      }
     }
   }
 
@@ -167,12 +171,14 @@ function textReport(files, totals, events, scriptCount, showUncovered) {
 }
 
 async function generateCoverageReport(options) {
-  const dir = path.resolve(options.dir);
+  const dirs = Array.isArray(options.dirs)
+    ? options.dirs.map((dir) => path.resolve(dir))
+    : (options.dir ? [path.resolve(options.dir)] : []);
   const root = path.resolve(options.root);
   const webRoot = path.resolve(options.webRoot || path.join(root, 'public'));
   const excludes = options.exclude && options.exclude.length > 0 ? options.exclude : ['node_modules', '.git'];
 
-  const events = loadEvents(dir);
+  const events = loadEvents(dirs);
   const coverageMap = libCoverage.createCoverageMap({});
   const labels = new Map();
   const sourceCache = new Map();

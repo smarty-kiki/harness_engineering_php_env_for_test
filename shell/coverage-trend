@@ -1,0 +1,4 @@
+#!/bin/sh
+
+# 覆盖率趋势：读取已归档轮次的 summary.json，计算增量、判断是否停滞，可生成下一轮计划。
+exec node /usr/local/share/harness/coverage/coverage-trend.js "$@"

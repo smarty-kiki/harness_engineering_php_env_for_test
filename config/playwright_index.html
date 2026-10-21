@@ -180,6 +180,10 @@
         overflow: hidden;
     }
 
+    .run.active {
+        border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+    }
+
     .run-row {
         display: flex;
         align-items: flex-start;
@@ -214,11 +218,16 @@
         word-break: break-word;
     }
 
-    .run-note {
+    .run-note,
+    .round-detail {
         margin-top: 5px;
         color: var(--muted);
         font-size: 12.5px;
+        line-height: 1.5;
+        word-break: break-word;
     }
+
+    .round-detail strong { color: var(--text); font-weight: 600; }
 
     .run-actions {
         display: flex;
@@ -244,6 +253,71 @@
     .badge.warn { color: var(--warn); background: var(--warn-soft); }
     .badge.dim { color: var(--muted); background: var(--bg); border: 1px solid var(--border); }
 
+    .badge.live {
+        color: var(--accent);
+        background: var(--accent-soft);
+    }
+
+    .badge.live::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+        animation: badge-pulse 1.4s ease-in-out infinite;
+    }
+
+    @keyframes badge-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: .25; }
+    }
+
+    .layers {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+    }
+
+    .layer-chip {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 5px;
+        padding: 2px 9px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: var(--bg);
+        color: var(--muted);
+        font-size: 12px;
+        white-space: nowrap;
+    }
+
+    .layer-chip strong {
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 12px;
+    }
+
+    .layer-chip em {
+        color: var(--err);
+        font-style: normal;
+        font-size: 11.5px;
+    }
+
+    .layer-chip.running {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+        color: var(--accent);
+    }
+
+    .layer-chip.running strong { color: var(--accent); }
+    .layer-chip.done { border-color: color-mix(in srgb, var(--ok) 40%, var(--border)); }
+    .layer-chip.done strong { color: var(--ok); }
+    .layer-chip.failed { border-color: var(--err); background: var(--err-soft); }
+    .layer-chip.failed strong { color: var(--err); }
+    .layer-chip.skipped { opacity: .6; }
+    .layer-chip.pending { border-style: dashed; }
+
     .steps-panel {
         border-top: 1px dashed var(--border);
         padding: 11px 16px 14px;
@@ -259,6 +333,8 @@
         font-size: 12px;
         margin-bottom: 8px;
     }
+
+    .steps-head strong { color: var(--text); }
 
     .steps-head code {
         font-family: var(--mono);
@@ -309,20 +385,28 @@
     }
 
     .case-layer + .case-layer { margin-top: 10px; }
+
     .case-layer-title {
         margin: 8px 0 4px;
         color: var(--muted);
         font-size: 12px;
         font-weight: 600;
     }
-    .case-failure {
+
+    .case-failure,
+    .case-note {
         display: block;
         margin-top: 2px;
-        color: var(--err);
         font-size: 11.5px;
         line-height: 1.45;
         word-break: break-word;
     }
+
+    .case-failure { color: var(--err); }
+    .case-note { color: var(--muted); }
+    .case-note.err { color: var(--err); }
+    .case-note.ok { color: var(--ok); }
+
     .step.not-run .step-icon { color: var(--warn); }
 
     .run-issues {
@@ -331,12 +415,15 @@
         font-size: 12px;
     }
 
-    .run-issues strong { color: var(--err); }
+    .run-issues > strong { color: var(--text); }
+    .run-issues ul { color: var(--err); }
 
     .run-issues ul {
         margin: 4px 0 0;
         padding-left: 18px;
     }
+
+    .run-issues .ok-text { color: var(--ok); }
 
     .empty {
         padding: 28px 16px;
@@ -367,7 +454,7 @@
 <div class="wrap">
     <header>
         <h1>测试观测台</h1>
-        <p>实时画面 · 测试用例与测试轮次 · 每轮 Trace / 全量测试报告</p>
+        <p>实时画面 · 测试轮次（编写 / 执行 / 报告） · 每轮完整覆盖率与 Trace</p>
     </header>
 
     <div class="section-title">实时画面</div>
@@ -375,24 +462,47 @@
         <span class="live-icon">◉</span>
         <div class="live-copy">
             <strong>只读实时画面</strong>
-            <span>playwright-run 执行时可直接观察浏览器操作，不可远程接管。</span>
+            <span>有头运行 playwright-run 时可直接观察浏览器操作，不可远程接管；无头运行不会显示画面。</span>
         </div>
         <a class="btn primary" href="/vnc/vnc.html?autoconnect=true&resize=scale&view_only=true">打开实时画面</a>
     </div>
 
-    <div class="section-title">测试用例及测试轮次</div>
+    <div class="section-title">测试轮次</div>
     <div class="runs" id="runs">
-        <div class="empty">正在读取运行记录…</div>
+        <div class="empty">正在读取测试轮次…</div>
     </div>
 
-    <footer>每一轮独立归档；历史轮次可直接回看 Trace 与全量测试报告。</footer>
+    <footer>轮次从编写用例时开始记录，执行过程中自动刷新；历史轮次可回看 Trace、覆盖率与全量测试报告。</footer>
 </div>
 
 <script>
 (function () {
     var runsBox = document.getElementById('runs');
-    var metas = [];
-    var rounds = [];
+    var items = [];
+    var expanded = {};
+    var signature = '';
+    var loading = false;
+    var timer = null;
+    var runCache = {};
+    var omittedLegacy = 0;
+    var MAX_LEGACY_RUNS = 8;
+
+    var ACTIVE_STATES = ['planning', 'preparing', 'seeding', 'frontend', 'api', 'cli', 'coverage', 'reporting'];
+    var STATE_LABELS = {
+        planning: '编写用例中',
+        preparing: '准备环境中',
+        seeding: '造数中',
+        frontend: '前端测试中',
+        api: '接口测试中',
+        cli: 'CLI 测试中',
+        coverage: '统计覆盖率',
+        reporting: '生成报告中',
+        done: '已完成',
+        failed: '失败',
+        interrupted: '已中断'
+    };
+    var LAYER_LABELS = { frontend: '前端', api: '接口', cli: 'CLI' };
+    var LAYER_STATES = { pending: '等待', running: '执行中', done: '已完成', failed: '失败', skipped: '未包含' };
 
     function esc(value) {
         return String(value == null ? '' : value)
@@ -410,16 +520,17 @@
         return date.toLocaleString('zh-CN', { hour12: false });
     }
 
-    function durationText(meta) {
-        var start = new Date(meta.started_at).getTime();
-        var end = new Date(meta.finished_at).getTime();
+    function clockTime(value) {
+        if (!value) { return ''; }
+        var date = new Date(value);
+        if (isNaN(date.getTime())) { return ''; }
+        return date.toLocaleTimeString('zh-CN', { hour12: false });
+    }
 
-        if (!isFinite(start) || !isFinite(end) || end < start) { return ''; }
-
-        var seconds = Math.round((end - start) / 1000);
-
+    function durationText(seconds) {
+        if (!isFinite(seconds) || seconds < 0) { return ''; }
+        seconds = Math.round(seconds);
         if (seconds < 60) { return seconds + ' 秒'; }
-
         return Math.floor(seconds / 60) + ' 分 ' + (seconds % 60) + ' 秒';
     }
 
@@ -432,93 +543,219 @@
         return (ms / 1000).toFixed(ms < 10000 ? 1 : 0) + 's';
     }
 
-    function statusBadge(meta) {
-        if (!meta) { return '<span class="badge warn">未完成</span>'; }
-        if (meta.error) { return '<span class="badge err">失败</span>'; }
-        return '<span class="badge ok">成功</span>';
+    function startTime(value) {
+        var time = new Date(value).getTime();
+        return isFinite(time) ? time : 0;
+    }
+
+    function isActiveRound(status) {
+        return status && ACTIVE_STATES.indexOf(status.state) >= 0;
+    }
+
+    function stateLabel(status) {
+        return status.state_label || STATE_LABELS[status.state] || status.state || '未知状态';
+    }
+
+    function roundStateClass(status) {
+        if (status.state === 'done') { return 'ok'; }
+        if (status.state === 'failed' || status.state === 'interrupted') { return 'err'; }
+        return 'live';
+    }
+
+    function pctText(value) {
+        return value === null || value === undefined || !isFinite(Number(value))
+            ? '—'
+            : Number(value).toFixed(2) + '%';
+    }
+
+    function numberValue(value) {
+        var number = Number(value);
+        return isFinite(number) ? number : null;
+    }
+
+    function totalsOf(status) {
+        if (status.totals && numberValue(status.totals.total) > 0) { return status.totals; }
+
+        var totals = { total: 0, passed: 0, failed: 0, not_run: 0 };
+        var layers = status.layers || {};
+
+        ['frontend', 'api', 'cli'].forEach(function (key) {
+            var layer = layers[key] || {};
+            totals.total += numberValue(layer.total) || 0;
+            totals.passed += numberValue(layer.passed) || 0;
+            totals.failed += numberValue(layer.failed) || 0;
+            totals.not_run += numberValue(layer.not_run) || 0;
+        });
+
+        totals.pass_rate = totals.total > 0 ? totals.passed / totals.total * 100 : 0;
+
+        return totals.total > 0 ? totals : null;
+    }
+
+    function caseCountOf(status) {
+        var totals = totalsOf(status);
+        if (totals) { return totals.total; }
+
+        var count = 0;
+        ['frontend', 'api', 'cli'].forEach(function (key) {
+            var layer = status.layers && status.layers[key];
+            if (layer && Array.isArray(layer.cases)) { count += layer.cases.length; }
+        });
+
+        return count;
+    }
+
+    function hasAnyCases(status) {
+        var layers = status.layers || {};
+        return ['frontend', 'api', 'cli'].some(function (key) {
+            return layers[key] && Array.isArray(layers[key].cases) && layers[key].cases.length > 0;
+        });
+    }
+
+    function layerCountText(layer) {
+        if (!layer) { return '0'; }
+        if (layer.state === 'skipped') { return '未参与'; }
+        var total = numberValue(layer.total) || 0;
+        if (total === 0) { return layer.state === 'running' ? '执行中' : '0'; }
+        return (numberValue(layer.passed) || 0) + '/' + total;
+    }
+
+    function layerChips(status) {
+        var layers = status.layers || {};
+        return ['frontend', 'api', 'cli'].map(function (key) {
+            var layer = layers[key] || {};
+            var state = layer.state || 'pending';
+            var failed = numberValue(layer.failed) || 0;
+            return '<span class="layer-chip ' + esc(state) + '" title="' + esc(LAYER_STATES[state] || state) + '">'
+                + esc(layer.name || LAYER_LABELS[key])
+                + ' <strong>' + esc(layerCountText(layer)) + '</strong>'
+                + (failed ? '<em>失败 ' + failed + '</em>' : '')
+                + '</span>';
+        }).join('');
+    }
+
+    function coverageBadges(status) {
+        var coverage = status.coverage || {};
+        var badges = [];
+
+        if (coverage.php_business) {
+            badges.push('<span>PHP ' + esc(pctText(coverage.php_business.percent)) + '</span>');
+        }
+
+        if (coverage.js) {
+            badges.push('<span>JS ' + esc(pctText(coverage.js.percent)) + '</span>');
+        }
+
+        var delta = status.coverage_delta;
+        if (delta) {
+            ['php_business', 'js'].forEach(function (key) {
+                var value = numberValue(delta[key]);
+                if (value === null) { return; }
+                badges.push('<span class="badge ' + (value >= 0 ? 'ok' : 'err') + '">'
+                    + (key === 'php_business' ? 'PHP' : 'JS') + ' Δ '
+                    + (value >= 0 ? '+' : '') + value.toFixed(2) + 'pp</span>');
+            });
+        }
+
+        return badges;
+    }
+
+    function auditBadges(status) {
+        var badges = [];
+        var pageFirst = status.page_first;
+
+        if (pageFirst) {
+            badges.push(pageFirst.unclassified > 0
+                ? '<span class="badge warn">页面穿透未分类 ' + pageFirst.unclassified + '</span>'
+                : '<span class="badge ok">页面穿透通过</span>');
+        }
+
+        var dataCheck = status.data_check;
+        if (dataCheck) {
+            badges.push(dataCheck.unverified > 0
+                ? '<span class="badge warn">落库未校验 ' + dataCheck.unverified + '</span>'
+                : '<span class="badge ok">落库校验通过</span>');
+        }
+
+        return badges;
+    }
+
+    function totalsBadge(status) {
+        var totals = totalsOf(status);
+        if (!totals) { return ''; }
+        var label = isActiveRound(status) ? '当前通过率' : '全量通过率';
+        return '<span class="badge ' + (totals.failed || totals.not_run ? 'err' : 'ok') + '">' + label + ' '
+            + pctText(totals.pass_rate) + '（' + totals.passed + '/' + totals.total + '）</span>';
+    }
+
+    function roundTimeParts(status, active) {
+        var parts = [];
+        var started = absoluteTime(status.started_at);
+        if (started) { parts.push('开始 ' + started); }
+
+        var start = startTime(status.started_at);
+        var end = active ? Date.now() : startTime(status.updated_at);
+
+        if (start && end >= start) {
+            parts.push((active ? '已运行 ' : '用时 ') + durationText((end - start) / 1000));
+        }
+
+        if (active) {
+            var updated = clockTime(status.updated_at);
+            if (updated) { parts.push('状态更新 ' + updated); }
+        }
+
+        return parts;
+    }
+
+    function currentDetail(status) {
+        var parts = [];
+
+        if (status.message) { parts.push(status.message); }
+
+        ['frontend', 'api', 'cli'].forEach(function (key) {
+            var layer = status.layers && status.layers[key];
+            if (layer && layer.state === 'running' && layer.current_step) {
+                parts.push(layer.current_step);
+            }
+        });
+
+        if (!parts.length && status.state === 'planning') {
+            parts.push('正在编写本轮用例；开始执行后自动更新进度');
+        }
+
+        if (!parts.length && status.state === 'done') {
+            parts.push('本轮已归档，可查看全量报告、覆盖率与下一轮补测计划');
+        }
+
+        return parts.join(' · ');
     }
 
     function stepStats(meta) {
         var steps = meta && Array.isArray(meta.steps) ? meta.steps : [];
         var passed = steps.filter(function (step) { return step.status === 'ok'; }).length;
         var failed = steps.length - passed;
-        var rate = steps.length > 0 ? (passed / steps.length * 100) : 0;
 
         return {
             total: steps.length,
             passed: passed,
             failed: failed,
-            rate: rate,
-            rateLabel: steps.length > 0 ? rate.toFixed(2) + '%' : '—',
+            rateLabel: steps.length > 0 ? (passed / steps.length * 100).toFixed(2) + '%' : '—'
         };
     }
 
-    function runRow(run, index) {
-        var meta = run.meta;
-        var round = run.round;
-        var parts = [];
-        var errorLine = '';
+    function traceLink(name, label) {
+        var href = '/trace/index.html?trace=' + encodeURIComponent('/artifacts/runs/' + name + '/trace.zip');
+        return '<a class="btn" href="' + href + '" target="_blank" rel="noopener">' + esc(label) + '</a>';
+    }
 
-        parts.push('<span class="run-id">' + esc(run.name) + '</span>');
-        parts.push(statusBadge(meta));
+    function actionLink(href, label) {
+        return '<a class="btn" href="' + esc(href) + '" target="_blank" rel="noopener">' + esc(label) + '</a>';
+    }
 
-        if (meta) {
-            var duration = durationText(meta);
-            if (duration) { parts.push('<span>' + esc(duration) + '</span>'); }
-
-            var started = absoluteTime(meta.started_at);
-            if (started) { parts.push('<span>' + esc(started) + '</span>'); }
-
-            if (round && round.totals) {
-                parts.push('<span class="badge ' + (round.totals.failed || round.totals.not_run ? 'err' : 'ok') + '">全量通过率 ' + (round.totals.pass_rate || 0).toFixed(2) + '%（' + round.totals.passed + '/' + round.totals.total + '）</span>');
-
-                var php = round.coverage && round.coverage.php_business;
-                var js = round.coverage && round.coverage.js;
-                if (js && js.percent) { parts.push('<span>JS ' + esc(js.percent.toFixed(2)) + '%</span>'); }
-                if (php && php.percent) { parts.push('<span>PHP ' + esc(php.percent.toFixed(2)) + '%</span>'); }
-            } else {
-                var stats = stepStats(meta);
-                if (stats.total > 0) {
-                    parts.push('<span class="badge ' + (stats.failed ? 'err' : 'ok') + '">前端用例通过率 ' + esc(stats.rateLabel) + '（' + stats.passed + '/' + stats.total + '）</span>');
-                }
-
-                var lines = meta.coverage && meta.coverage.totals && meta.coverage.totals.lines;
-                if (lines && lines.pct) { parts.push('<span>前端行覆盖 ' + esc(lines.pct) + '</span>'); }
-            }
-
-            if (meta.error) {
-                errorLine = '<div class="run-error">失败于：' + esc(meta.error.step || '未知步骤');
-                if (meta.error.message) { errorLine += ' · ' + esc(meta.error.message); }
-                errorLine += '</div>';
-            } else if (round && round.totals && (round.totals.failed || round.totals.not_run)) {
-                errorLine = '<div class="run-error">全量失败 ' + round.totals.failed + ' 条，未执行 ' + round.totals.not_run + ' 条</div>';
-            }
-        } else {
-            errorLine = '<div class="run-note">该轮次没有生成 meta.json（可能被中断），无法回看步骤与结果。</div>';
-        }
-
-        var actions = [];
-
-        if (meta) {
-            var traceHref = '/trace/index.html?trace=' + encodeURIComponent('/artifacts/runs/' + run.name + '/trace.zip');
-            actions.push('<a class="btn" href="' + traceHref + '" target="_blank" rel="noopener">Trace Viewer</a>');
-            var caseCount = round && round.totals ? round.totals.total : (meta.steps ? meta.steps.length : 0);
-            var caseLabel = (round ? '全量用例（' : '前端用例（') + caseCount + '）';
-            actions.push('<button class="btn" type="button" data-steps="' + index + '" data-case-label="' + caseLabel + '" aria-expanded="false">' + caseLabel + '</button>');
-            if (round) {
-                actions.push('<a class="btn" href="/artifacts/runs/' + encodeURIComponent(run.name) + '/round/index.html" target="_blank" rel="noopener">全量测试报告</a>');
-            }
-        } else {
-            actions.push('<a class="btn" href="/artifacts/runs/' + encodeURIComponent(run.name) + '/" target="_blank" rel="noopener">产物目录</a>');
-        }
-
-        return '<article class="run" data-run-index="' + index + '">'
-            + '<div class="run-row">'
-            + '<div class="run-main"><div class="run-head">' + parts.join('') + '</div>' + errorLine + '</div>'
-            + '<div class="run-actions">' + actions.join('') + '</div>'
-            + '</div>'
-            + '<div class="steps-panel" hidden></div>'
-            + '</article>';
+    function caseButton(index, label, expandedNow) {
+        return '<button class="btn" type="button" data-index="' + index + '" aria-expanded="' + (expandedNow ? 'true' : 'false') + '">'
+            + esc(expandedNow ? '收起用例' : label) + '</button>';
     }
 
     function renderCaseList(cases) {
@@ -533,17 +770,29 @@
             var failed = item.status === 'failed';
             var notRun = item.status === 'not_run';
             var icon = failed ? '✕' : (notRun ? '•' : '✓');
-            var detail = '';
+            var notes = [];
 
             if (failed || notRun) {
                 var expected = item.expected ? '期望：' + item.expected : '';
                 var actual = item.actual ? '实际：' + item.actual : '';
-                detail = '<span class="case-failure">' + esc([expected, actual].filter(Boolean).join(' · ').slice(0, 600)) + '</span>';
+                notes.push('<span class="case-failure">' + esc([expected, actual].filter(Boolean).join(' · ').slice(0, 600)) + '</span>');
+            }
+
+            if (item.via_page) {
+                notes.push('<span class="case-note">穿透页面：' + esc(item.via_page) + '</span>');
+            } else if (item.unreachable_reason) {
+                notes.push('<span class="case-note">页面不可达：' + esc(item.unreachable_reason) + '</span>');
+            }
+
+            if (item.mutates_data) {
+                notes.push(item.db_verification
+                    ? '<span class="case-note ok">落库已校验</span>'
+                    : '<span class="case-note err">落库未校验</span>');
             }
 
             html += '<li class="step' + (failed ? ' error' : (notRun ? ' not-run' : '')) + '">'
                 + '<span class="step-icon">' + icon + '</span>'
-                + '<span class="step-name">' + esc(item.name) + detail + '</span>'
+                + '<span class="step-name">' + esc(item.name) + notes.join('') + '</span>'
                 + '<span class="step-time">' + esc(durationMs(item.duration_ms)) + '</span>'
                 + '</li>';
         }
@@ -552,94 +801,370 @@
         return html;
     }
 
-    function renderSteps(meta, round) {
-        var steps = Array.isArray(meta.steps) ? meta.steps : [];
-        var stats = stepStats(meta);
+    function layerEmptyText(layer) {
+        if (!layer || layer.state === 'pending') { return '等待执行。'; }
+        if (layer.state === 'skipped') { return '本轮不包含该层测试。'; }
+        if (layer.state === 'running') { return '执行中；用例明细在本层结束后写入。'; }
+        return '该层没有记录用例。';
+    }
+
+    function renderLayers(layers) {
         var html = '';
 
-        if (round && round.layers) {
-            html += '<div class="steps-head">'
-                + '<span>全量通过率 <strong>' + (round.totals.pass_rate || 0).toFixed(2) + '%</strong>（' + round.totals.passed + '/' + round.totals.total + '）</span>'
-                + '<span>失败 ' + round.totals.failed + '</span>'
-                + '<span>未执行 ' + round.totals.not_run + '</span>'
-                + '<span>流程文件：<code>' + esc(meta.flow || '未记录') + '</code></span>'
-                + '</div>';
+        ['frontend', 'api', 'cli'].forEach(function (key) {
+            var layer = (layers && layers[key]) || {};
+            var cases = Array.isArray(layer.cases) ? layer.cases : [];
+            var title = esc(layer.name || LAYER_LABELS[key]) + ' '
+                + esc(layerCountText(layer))
+                + (layer.failed ? ' · 失败 ' + numberValue(layer.failed) : '')
+                + (layer.not_run ? ' · 未执行 ' + numberValue(layer.not_run) : '')
+                + (LAYER_STATES[layer.state] ? ' · ' + LAYER_STATES[layer.state] : '');
 
-            ['frontend', 'api', 'cli'].forEach(function (key) {
-                var layer = round.layers[key];
-                if (!layer) { return; }
-                html += '<div class="case-layer">'
-                    + '<div class="case-layer-title">' + esc(layer.name) + ' ' + layer.passed + '/' + layer.total
-                    + (layer.failed ? ' · 失败 ' + layer.failed : '')
-                    + (layer.not_run ? ' · 未执行 ' + layer.not_run : '')
-                    + '</div>'
-                    + renderCaseList(Array.isArray(layer.cases) ? layer.cases : [])
-                    + '</div>';
-            });
-        } else {
-            html += '<div class="steps-head">'
-                + '<span>前端用例通过率 <strong>' + esc(stats.rateLabel) + '</strong>（' + stats.passed + '/' + stats.total + '）</span>'
-                + '<span>失败 ' + stats.failed + '</span>'
-                + '<span>流程文件：<code>' + esc(meta.flow || '未记录') + '</code></span>'
+            html += '<div class="case-layer">'
+                + '<div class="case-layer-title">' + title + '</div>'
+                + (cases.length ? renderCaseList(cases) : '<div class="run-note">' + esc(layerEmptyText(layer)) + '</div>')
                 + '</div>';
-            html += renderCaseList(steps.map(function (step) {
-                return {
-                    name: step.name,
-                    status: step.status === 'ok' ? 'passed' : 'failed',
-                    duration_ms: step.duration_ms,
-                    expected: '',
-                    actual: step.error || '',
-                };
-            }));
+        });
+
+        return html;
+    }
+
+    function renderAudits(status) {
+        var html = '';
+        var pageFirst = status.page_first;
+
+        if (pageFirst) {
+            html += '<div class="run-issues"><strong>页面穿透审计</strong>'
+                + ' 页面用例 ' + pageFirst.frontend_cases
+                + ' · 接口 / CLI ' + pageFirst.api_cli_cases
+                + ' · 已关联页面 ' + pageFirst.via_page
+                + ' · 不可达说明 ' + pageFirst.unreachable
+                + ' · 未分类 ' + pageFirst.unclassified;
+
+            if (pageFirst.violations && pageFirst.violations.length) {
+                html += '<ul>' + pageFirst.violations.slice(0, 30).map(function (item) {
+                    return '<li>[' + esc(item.layer) + '] ' + esc(item.name) + ' — ' + esc(item.reason) + '</li>';
+                }).join('') + '</ul>';
+            } else {
+                html += '<div class="ok-text">全部接口 / CLI 用例都已关联页面用例或说明页面不可达原因。</div>';
+            }
+
+            html += '</div>';
         }
 
-        var pageErrors = Array.isArray(meta.page_errors) ? meta.page_errors : [];
-        var consoleErrors = Array.isArray(meta.console_errors) ? meta.console_errors : [];
+        var dataCheck = status.data_check;
 
-        if (pageErrors.length || consoleErrors.length) {
-            html += '<div class="run-issues"><strong>运行期错误</strong><ul>';
-            pageErrors.forEach(function (item) {
-                html += '<li>页面：' + esc(item.page_url || '') + ' · ' + esc(item.message || '') + '</li>';
-            });
-            consoleErrors.forEach(function (item) {
-                html += '<li>Console：' + esc(typeof item === 'string' ? item : (item.text || JSON.stringify(item))) + '</li>';
-            });
-            html += '</ul></div>';
+        if (dataCheck) {
+            html += '<div class="run-issues"><strong>数据落库校验</strong>'
+                + ' 写数据用例 ' + dataCheck.mutating_cases
+                + ' · 已校验 ' + dataCheck.verified
+                + ' · 未校验 ' + dataCheck.unverified;
+
+            if (dataCheck.violations && dataCheck.violations.length) {
+                html += '<ul>' + dataCheck.violations.slice(0, 30).map(function (item) {
+                    return '<li>[' + esc(item.layer) + '] ' + esc(item.name) + ' — ' + esc(item.reason) + '</li>';
+                }).join('') + '</ul>';
+            } else {
+                html += '<div class="ok-text">全部已标记为写数据的用例都记录了数据库落库校验。</div>';
+            }
+
+            html += '</div>';
         }
 
         return html;
     }
 
-    function bindSteps() {
-        runsBox.addEventListener('click', function (event) {
-            var button = event.target.closest('[data-steps]');
-            if (!button) { return; }
+    function renderIssues(meta) {
+        if (!meta) { return ''; }
 
-            var index = Number(button.getAttribute('data-steps'));
-            var meta = metas[index];
-            var round = rounds[index];
-            var article = button.closest('.run');
-            var panel = article.querySelector('.steps-panel');
-            var expanded = button.getAttribute('aria-expanded') === 'true';
+        var pageErrors = Array.isArray(meta.page_errors) ? meta.page_errors : [];
+        var consoleErrors = Array.isArray(meta.console_errors) ? meta.console_errors : [];
 
-            if (!meta) { return; }
+        if (!pageErrors.length && !consoleErrors.length) { return ''; }
 
-            if (expanded) {
-                panel.hidden = true;
-                button.setAttribute('aria-expanded', 'false');
-                button.textContent = button.getAttribute('data-case-label') || '用例';
-                return;
-            }
+        var html = '<div class="run-issues"><strong>运行期错误</strong><ul>';
 
-            if (!panel.dataset.rendered) {
-                panel.innerHTML = renderSteps(meta, round);
-                panel.dataset.rendered = '1';
-            }
-
-            panel.hidden = false;
-            button.setAttribute('aria-expanded', 'true');
-            button.textContent = '收起用例';
+        pageErrors.forEach(function (item) {
+            html += '<li>页面：' + esc(item.page_url || '') + ' · ' + esc(item.message || '') + '</li>';
         });
+
+        consoleErrors.forEach(function (item) {
+            html += '<li>Console：' + esc(typeof item === 'string' ? item : (item.text || JSON.stringify(item))) + '</li>';
+        });
+
+        return html + '</ul></div>';
+    }
+
+    function renderRoundPanel(item) {
+        var status = item.status;
+        var meta = item.meta;
+        var totals = totalsOf(status);
+        var head = [];
+
+        if (totals) {
+            head.push('<span>' + (isActiveRound(status) ? '当前通过率' : '全量通过率') + ' <strong>' + esc(pctText(totals.pass_rate)) + '</strong>（'
+                + totals.passed + '/' + totals.total + '）</span>');
+            head.push('<span>失败 ' + totals.failed + '</span>');
+            head.push('<span>未执行 ' + totals.not_run + '</span>');
+        }
+
+        if (status.coverage_scope) {
+            head.push('<span>覆盖口径：PHP ' + esc(status.coverage_scope.php || '本轮全部执行')
+                + '；JS ' + esc(status.coverage_scope.js || '本轮全部页面流程') + '</span>');
+        }
+
+        if (meta && meta.flow) {
+            head.push('<span>流程：<code>' + esc(meta.flow) + '</code></span>');
+        }
+
+        if (item.runs && item.runs.length) {
+            head.push('<span>运行：<code>' + esc(item.runs.map(function (run) { return run.name; }).join('、')) + '</code></span>');
+        }
+
+        return '<div class="steps-head">' + head.join('') + '</div>'
+            + renderLayers(status.layers)
+            + renderAudits(status)
+            + renderIssues(meta);
+    }
+
+    function renderMetaPanel(meta) {
+        var steps = Array.isArray(meta.steps) ? meta.steps : [];
+        var stats = stepStats(meta);
+        var html = '<div class="steps-head">'
+            + '<span>前端用例通过率 <strong>' + esc(stats.rateLabel) + '</strong>（' + stats.passed + '/' + stats.total + '）</span>'
+            + '<span>失败 ' + stats.failed + '</span>'
+            + '<span>流程文件：<code>' + esc(meta.flow || '未记录') + '</code></span>'
+            + '</div>';
+
+        html += renderCaseList(steps.map(function (step) {
+            return {
+                name: step.name,
+                status: step.status === 'ok' ? 'passed' : 'failed',
+                duration_ms: step.duration_ms,
+                expected: '',
+                actual: step.error || ''
+            };
+        }));
+
+        return html + renderIssues(meta);
+    }
+
+    function renderLegacyRoundPanel(item) {
+        var meta = item.meta;
+        var summary = item.round;
+
+        if (!meta) {
+            return '<div class="run-note">该轮次没有生成 meta.json（可能被中断），无法回看步骤与结果。</div>';
+        }
+
+        if (summary && summary.layers) {
+            return renderRoundPanel({
+                status: {
+                    round_id: summary.round_id || item.run.name,
+                    state: 'done',
+                    layers: summary.layers,
+                    totals: summary.totals,
+                    coverage: summary.coverage,
+                    coverage_scope: summary.coverage_scope,
+                    coverage_delta: summary.coverage_delta,
+                    page_first: summary.page_first,
+                    data_check: summary.data_check
+                },
+                runs: [item.run],
+                meta: meta
+            });
+        }
+
+        return renderMetaPanel(meta);
+    }
+
+    function actionButtons(item, index) {
+        var actions = [];
+
+        if (item.kind === 'round') {
+            var status = item.status;
+            var reportUrl = status.report_url;
+
+            if (!reportUrl && status.summary_path && (status.state === 'done' || status.state === 'failed')) {
+                reportUrl = '/rounds/' + encodeURIComponent(status.round_id) + '/report/index.html';
+            }
+
+            if (reportUrl) { actions.push(actionLink(reportUrl, '全量测试报告')); }
+            if (status.plan_url) { actions.push(actionLink(status.plan_url, '下一轮补测计划')); }
+
+            (item.runs || []).forEach(function (run, runIndex) {
+                if (!run.meta) { return; }
+                var label = item.runs.length > 1 ? 'Trace ' + (runIndex + 1) : 'Trace Viewer';
+                actions.push(traceLink(run.name, label));
+            });
+
+            var count = caseCountOf(status);
+
+            if (count > 0 || hasAnyCases(status)) {
+                actions.push(caseButton(index, (status.totals ? '全量用例' : '用例') + '（' + count + '）', !!expanded[item.key]));
+            }
+
+            return actions.join('');
+        }
+
+        var meta = item.meta;
+        var round = item.round;
+        var actionsHtml = [];
+
+        if (meta) {
+            actionsHtml.push(traceLink(item.run.name, 'Trace Viewer'));
+
+            var caseCount = round && round.totals ? round.totals.total : (meta.steps ? meta.steps.length : 0);
+            var caseLabel = (round ? '全量用例（' : '前端用例（') + caseCount + '）';
+            actionsHtml.push(caseButton(index, caseLabel, !!expanded[item.key]));
+
+            if (round) {
+                actionsHtml.push(actionLink('/artifacts/runs/' + encodeURIComponent(item.run.name) + '/round/index.html', '全量测试报告'));
+            }
+        } else {
+            actionsHtml.push(actionLink('/artifacts/runs/' + encodeURIComponent(item.run.name) + '/', '产物目录'));
+        }
+
+        return actionsHtml.join('');
+    }
+
+    function renderCard(item, index) {
+        var active = item.kind === 'round' && isActiveRound(item.status);
+        var head = [];
+        var detail = '';
+        var error = '';
+
+        if (item.kind === 'round') {
+            var status = item.status;
+
+            head.push('<span class="run-id">' + esc(status.round_id) + '</span>');
+            head.push('<span class="badge ' + roundStateClass(status) + '">' + esc(stateLabel(status)) + '</span>');
+
+            if (status.name && status.name !== 'round') {
+                head.push('<span class="badge dim">' + esc(status.name) + '</span>');
+            }
+
+            roundTimeParts(status, active).forEach(function (part) { head.push('<span>' + esc(part) + '</span>'); });
+            head.push(totalsBadge(status));
+            coverageBadges(status).forEach(function (badge) { head.push(badge); });
+            auditBadges(status).forEach(function (badge) { head.push(badge); });
+
+            detail = currentDetail(status);
+
+            if (status.error) {
+                error = '<div class="run-error">' + esc(status.error) + '</div>';
+            } else if (item.meta && item.meta.error) {
+                error = '<div class="run-error">失败于：' + esc(item.meta.error.step || '未知步骤');
+                if (item.meta.error.message) { error += ' · ' + esc(item.meta.error.message); }
+                error += '</div>';
+            }
+        } else {
+            var meta = item.meta;
+            var round = item.round;
+
+            head.push('<span class="run-id">' + esc(item.run.name) + '</span>');
+
+            if (!meta) {
+                head.push('<span class="badge warn">未完成</span>');
+            } else if (meta.error) {
+                head.push('<span class="badge err">失败</span>');
+            } else {
+                head.push('<span class="badge ok">成功</span>');
+            }
+
+            if (meta) {
+                var start = startTime(meta.started_at);
+                var end = startTime(meta.finished_at);
+
+                if (start && end >= start) { head.push('<span>' + durationText((end - start) / 1000) + '</span>'); }
+
+                var started = absoluteTime(meta.started_at);
+                if (started) { head.push('<span>' + esc(started) + '</span>'); }
+
+                if (round && round.totals) {
+                    head.push('<span class="badge ' + (round.totals.failed || round.totals.not_run ? 'err' : 'ok') + '">全量通过率 '
+                        + pctText(round.totals.pass_rate) + '（' + round.totals.passed + '/' + round.totals.total + '）</span>');
+                    coverageBadges({ coverage: round.coverage || {} }).forEach(function (badge) { head.push(badge); });
+                } else {
+                    var stats = stepStats(meta);
+
+                    if (stats.total > 0) {
+                        head.push('<span class="badge ' + (stats.failed ? 'err' : 'ok') + '">前端用例通过率 '
+                            + esc(stats.rateLabel) + '（' + stats.passed + '/' + stats.total + '）</span>');
+                    }
+
+                    var lines = meta.coverage && meta.coverage.totals && meta.coverage.totals.lines;
+                    if (lines && lines.pct) { head.push('<span>前端行覆盖 ' + esc(lines.pct) + '</span>'); }
+                }
+
+                if (meta.error) {
+                    error = '<div class="run-error">失败于：' + esc(meta.error.step || '未知步骤');
+                    if (meta.error.message) { error += ' · ' + esc(meta.error.message); }
+                    error += '</div>';
+                } else if (round && round.totals && (round.totals.failed || round.totals.not_run)) {
+                    error = '<div class="run-error">全量失败 ' + round.totals.failed + ' 条，未执行 ' + round.totals.not_run + ' 条</div>';
+                }
+            } else {
+                error = '<div class="run-note">该轮次没有生成 meta.json（可能被中断），无法回看步骤与结果。</div>';
+            }
+        }
+
+        return '<article class="run' + (active ? ' active' : '') + '" data-index="' + index + '">'
+            + '<div class="run-row">'
+            + '<div class="run-main"><div class="run-head">' + head.join('') + '</div>'
+            + (item.kind === 'round' ? '<div class="layers">' + layerChips(item.status) + '</div>' : '')
+            + (detail ? '<div class="round-detail">' + esc(detail) + '</div>' : '')
+            + error
+            + '</div>'
+            + '<div class="run-actions">' + actionButtons(item, index) + '</div>'
+            + '</div>'
+            + '<div class="steps-panel" hidden></div>'
+            + '</article>';
+    }
+
+    function render() {
+        if (!items.length) {
+            runsBox.innerHTML = '<div class="empty">还没有测试轮次。开始一轮时先执行 '
+                + '<code>round-status start --name=round --suite-dir=/var/www/test_usecase</code>，'
+                + '编写用例期间就会出现在这里。</div>';
+            return;
+        }
+
+        var html = items.map(renderCard).join('');
+
+        if (omittedLegacy > 0) {
+            html += '<div class="run-note">另有 ' + omittedLegacy + ' 条更早的 Playwright 运行未展示，可在 '
+                + '<a href="/artifacts/" target="_blank" rel="noopener">/artifacts/</a> 查看。</div>';
+        }
+
+        runsBox.innerHTML = html;
+
+        Object.keys(expanded).forEach(function (key) {
+            if (!expanded[key]) { return; }
+
+            var index = items.findIndex(function (item) { return item.key === key; });
+            if (index < 0) { return; }
+
+            var article = runsBox.querySelector('[data-index="' + index + '"]');
+            var panel = article && article.querySelector('.steps-panel');
+            if (!panel) { return; }
+
+            panel.innerHTML = items[index].kind === 'round'
+                ? renderRoundPanel(items[index])
+                : renderLegacyRoundPanel(items[index]);
+            panel.hidden = false;
+        });
+    }
+
+    function anyActive() {
+        return items.some(function (item) {
+            return item.kind === 'round' && isActiveRound(item.status);
+        });
+    }
+
+    function schedule() {
+        if (timer) { clearTimeout(timer); }
+        timer = setTimeout(loadData, anyActive() ? 3000 : 15000);
     }
 
     function fetchJson(url) {
@@ -648,48 +1173,190 @@
             .catch(function () { return null; });
     }
 
+    function directoryNames(entries) {
+        return (Array.isArray(entries) ? entries : [])
+            .filter(function (entry) { return entry && entry.type === 'directory' && entry.name; })
+            .map(function (entry) { return entry.name; })
+            .sort()
+            .reverse();
+    }
+
     function fetchRun(name) {
+        if (runCache[name]) { return Promise.resolve(runCache[name]); }
+
         return Promise.all([
             fetchJson('/artifacts/runs/' + encodeURIComponent(name) + '/meta.json'),
-            fetchJson('/artifacts/runs/' + encodeURIComponent(name) + '/round/summary.json'),
+            fetchJson('/artifacts/runs/' + encodeURIComponent(name) + '/round/summary.json')
         ]).then(function (values) {
-            return { name: name, meta: values[0], round: values[1] };
+            var run = { name: name, meta: values[0], round: values[1] };
+
+            // 运行结束且全量摘要已生成后不再变化；摘要可能稍后才复制过来，未就绪时下轮继续读取
+            if (run.meta && run.meta.finished_at && run.round) { runCache[name] = run; }
+
+            return run;
         });
     }
 
-    function loadRuns() {
-        fetch('/runs-json/', { cache: 'no-store' })
-            .then(function (resp) {
-                if (!resp.ok) { throw new Error('HTTP ' + resp.status); }
-                return resp.json();
-            })
-            .then(function (entries) {
-                var names = (Array.isArray(entries) ? entries : [])
-                    .filter(function (entry) { return entry && entry.type === 'directory' && entry.name; })
-                    .map(function (entry) { return entry.name; })
-                    .sort()
-                    .reverse();
+    function referencedRunNames(rounds) {
+        var names = {};
 
-                return Promise.all(names.map(fetchRun));
-            })
-            .then(function (runs) {
-                metas = runs.map(function (run) { return run.meta; });
-                rounds = runs.map(function (run) { return run.round; });
+        rounds.forEach(function (round) {
+            var runs = Array.isArray(round.status.playwright_runs) ? round.status.playwright_runs : [];
+            runs.forEach(function (run) { names[runNameOf(run)] = true; });
+        });
 
-                if (runs.length === 0) {
-                    runsBox.innerHTML = '<div class="empty">还没有运行记录，执行一次 playwright-run 后这里会出现测试轮次。</div>';
-                    return;
-                }
+        delete names[''];
 
-                runsBox.innerHTML = runs.map(runRow).join('');
-                bindSteps();
-            })
-            .catch(function (err) {
-                runsBox.innerHTML = '<div class="empty">运行记录读取失败：' + esc(err.message) + '</div>';
-            });
+        return names;
     }
 
-    loadRuns();
+    function runNameOf(path) {
+        return String(path || '').split('/').filter(Boolean).pop() || '';
+    }
+
+    function mergeItems(rounds, runs) {
+        var runByName = {};
+        var referenced = {};
+        var merged = [];
+
+        runs.forEach(function (run) { runByName[run.name] = run; });
+
+        rounds.forEach(function (round) {
+            var status = round.status;
+            var runNames = Array.isArray(status.playwright_runs)
+                ? status.playwright_runs.map(runNameOf).filter(Boolean)
+                : [];
+            var roundRuns = runNames.map(function (name) {
+                return runByName[name] || { name: name, meta: null, round: null };
+            });
+            var latest = roundRuns[roundRuns.length - 1] || null;
+
+            runNames.forEach(function (name) { referenced[name] = true; });
+
+            merged.push({
+                key: 'round:' + status.round_id,
+                kind: 'round',
+                status: status,
+                runs: roundRuns,
+                run: latest,
+                meta: latest ? latest.meta : null
+            });
+        });
+
+        runs.forEach(function (run) {
+            if (referenced[run.name]) { return; }
+
+            merged.push({
+                key: 'run:' + run.name,
+                kind: 'run',
+                run: run,
+                meta: run.meta,
+                round: run.round,
+                status: null,
+                runs: [run]
+            });
+        });
+
+        return merged.sort(function (a, b) {
+            var aTime = a.kind === 'round'
+                ? startTime(a.status.started_at)
+                : (a.meta ? startTime(a.meta.started_at) : 0);
+            var bTime = b.kind === 'round'
+                ? startTime(b.status.started_at)
+                : (b.meta ? startTime(b.meta.started_at) : 0);
+
+            return bTime - aTime;
+        });
+    }
+
+    function loadData() {
+        if (loading) { return; }
+        loading = true;
+
+        Promise.all([
+            fetchJson('/rounds-json/'),
+            fetchJson('/runs-json/')
+        ]).then(function (indexes) {
+            var roundNames = directoryNames(indexes[0]);
+            var runNames = directoryNames(indexes[1]);
+
+            // 先读轮次状态，确定本轮引用了哪些 Playwright 运行；
+            // 旧运行只取最近的若干条，避免轮询时把全部历史 meta 都拉一遍。
+            return Promise.all(roundNames.map(function (name) {
+                return fetchJson('/rounds/' + encodeURIComponent(name) + '/status.json')
+                    .then(function (status) { return status ? { name: name, status: status } : null; });
+            })).then(function (rounds) {
+                rounds = rounds.filter(Boolean);
+
+                var referenced = referencedRunNames(rounds);
+                var legacyNames = runNames.filter(function (name) { return !referenced[name]; });
+                var legacyShown = legacyNames.slice(0, MAX_LEGACY_RUNS);
+                var fetchNames = Object.keys(referenced).concat(legacyShown);
+                var uniqueNames = [];
+
+                fetchNames.forEach(function (name) {
+                    if (name && uniqueNames.indexOf(name) < 0) { uniqueNames.push(name); }
+                });
+
+                omittedLegacy = Math.max(0, runNames.length - Object.keys(referenced).filter(function (name) {
+                    return runNames.indexOf(name) >= 0;
+                }).length - legacyShown.length);
+
+                return Promise.all(uniqueNames.map(fetchRun)).then(function (runs) {
+                    return { rounds: rounds, runs: runs };
+                });
+            });
+        }).then(function (values) {
+            var rounds = values.rounds;
+            var runs = values.runs;
+            var nextSignature = JSON.stringify({
+                rounds: rounds.map(function (round) { return round.status; }),
+                runs: runs.map(function (run) { return [run.name, run.meta, run.round]; }),
+                omitted: omittedLegacy
+            });
+            var wasActive = anyActive();
+
+            items = mergeItems(rounds, runs);
+
+            var keys = {};
+            items.forEach(function (item) { keys[item.key] = true; });
+            Object.keys(expanded).forEach(function (key) {
+                if (!keys[key]) { delete expanded[key]; }
+            });
+
+            if (wasActive || nextSignature !== signature) {
+                signature = nextSignature;
+                render();
+            }
+
+            schedule();
+        }).catch(function (error) {
+            if (!items.length) {
+                runsBox.innerHTML = '<div class="empty">测试轮次读取失败：' + esc(error.message) + '</div>';
+            }
+            schedule();
+        }).then(function () {
+            loading = false;
+        });
+    }
+
+    runsBox.addEventListener('click', function (event) {
+        var button = event.target.closest('button[data-index]');
+        if (!button) { return; }
+
+        var index = Number(button.getAttribute('data-index'));
+        var item = items[index];
+        if (!item) { return; }
+
+        expanded[item.key] = !expanded[item.key];
+        render();
+    });
+
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) { loadData(); }
+    });
+
+    loadData();
 })();
 </script>
 </body>
