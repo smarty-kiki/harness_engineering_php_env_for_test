@@ -61,29 +61,29 @@ summary.json / summary.md / index.html
 ```json
 {
   "layer": "api",
-  "name": "接口：创建项目后落库",
+  "name": "接口：创建记录后落库",
   "status": "passed",
   "duration_ms": 32,
-  "expected": "项目创建成功且数据库存在记录",
+  "expected": "记录创建成功且数据库存在记录",
   "actual": "接口返回成功，数据库记录字段正确",
-  "operation_steps": "1、提交创建项目请求；2、查询 project 表；3、核对名称与状态",
-  "case_id": "PMS-项目-001",
-  "system": "项目管理系统",
-  "module": "项目",
+  "operation_steps": "1、提交创建请求；2、查询业务表；3、核对名称与状态",
+  "case_id": "SYS-MOD-001",
+  "system": "业务系统 A",
+  "module": "业务模块 A",
   "design_method": "场景检查",
-  "test_unit": "创建项目按钮",
-  "test_point": "场景检查-合法名称创建项目并落库",
+  "test_unit": "创建按钮",
+  "test_point": "场景检查-合法名称创建记录并落库",
   "case_kind": "positive",
   "checkpoints": [
     {"name": "接口返回 code=0", "status": "passed"},
-    {"name": "project 表新增 1 行", "status": "failed", "expected": "1 行", "actual": "0 行"}
+    {"name": "业务表新增 1 行", "status": "failed", "expected": "1 行", "actual": "0 行"}
   ],
-  "via_page": "页面：创建项目",
+  "via_page": "页面：创建记录",
   "mutates_data": true,
   "db_verification": {
     "passed": true,
     "checks": [
-      {"table": "project", "id": 900001, "expect": "name=测试项目, status=1", "actual": "name=测试项目, status=1"}
+      {"table": "demo", "id": 900001, "expect": "name=示例记录, status=1", "actual": "name=示例记录, status=1"}
     ]
   }
 }
@@ -167,10 +167,10 @@ round-status finish --id=<轮次> --summary=/tmp/my-round/summary.json \
       "cases": [
         {
           "layer": "前端",
-          "name": "页面：创建项目",
+          "name": "页面：创建记录",
           "status": "passed",
           "mutates_data": true,
-          "db_verification": {"passed": true, "detail": "project 表记录字段正确"}
+          "db_verification": {"passed": true, "detail": "业务表记录字段正确"}
         }
       ]
     },
@@ -220,7 +220,7 @@ round-status finish --id=<轮次> --summary=/tmp/my-round/summary.json \
     "units": [],
     "units_without_positive": [],
     "modules": [
-      {"system": "项目管理系统", "module": "项目", "total": 24, "passed": 23, "failed": 1, "not_run": 0}
+      {"system": "业务系统 A", "module": "业务模块 A", "total": 24, "passed": 23, "failed": 1, "not_run": 0}
     ],
     "unclassified_cases": 73,
     "violations": []

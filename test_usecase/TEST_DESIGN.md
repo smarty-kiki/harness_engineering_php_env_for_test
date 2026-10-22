@@ -188,7 +188,7 @@ HARNESS_COVERAGE=0 php /var/www/test_usecase/fixtures/db_check.php \
   "db_verification": {
     "passed": true,
     "checks": [
-      {"table": "project", "id": 900001, "expect": "name=测试项目, status=1", "actual": "name=测试项目, status=1"}
+      {"table": "demo", "id": 900001, "expect": "name=示例记录, status=1", "actual": "name=示例记录, status=1"}
     ]
   }
 }
@@ -263,17 +263,17 @@ HARNESS_COVERAGE=0 php /var/www/test_usecase/fixtures/db_check.php \
 
 ```json
 {
-  "case_id": "PMS-项目-014",
-  "system": "项目管理系统",
-  "module": "项目",
+  "case_id": "SYS-MOD-014",
+  "system": "业务系统 A",
+  "module": "业务模块 A",
   "design_method": "边界值",
-  "test_unit": "项目名称输入框",
+  "test_unit": "名称输入框",
   "test_point": "边界值-名称 128 字符可保存、129 字符被拒绝",
   "case_kind": "negative",
-  "operation_steps": "1、打开新建项目弹窗；2、输入 129 个字符的名称；3、点击创建；4、查询 project 表确认未新增",
+  "operation_steps": "1、打开新建记录弹窗；2、输入 129 个字符的名称；3、点击创建；4、查询业务表确认未新增",
   "checkpoints": [
     {"name": "提示名称过长", "status": "passed"},
-    {"name": "project 表未新增记录", "status": "failed", "expected": "0 行", "actual": "1 行"}
+    {"name": "业务表未新增记录", "status": "failed", "expected": "0 行", "actual": "1 行"}
   ]
 }
 ```
@@ -285,9 +285,21 @@ HARNESS_COVERAGE=0 php /var/www/test_usecase/fixtures/db_check.php \
 - 提供 `design_method` 时必须同时提供 `system`、`module`、`test_unit`、`test_point` 与 `operation_steps`；缺少任一字段会被报告判为元数据错误（`DESIGN_STRICT=1` 时本轮失败）。
 - `operation_steps` 写用户 / 调用方的实际操作顺序（中文分号或编号），不是代码实现说明；报告失败清单与 8080 用例明细会直接展示这段文本。
 - `expected` / `actual` 描述用例的整体结果：页面能否打开、流程能否走通、请求是否成功。`checkpoints` 描述流程内部的细分对比点：页面是否打开、按钮 / 标签文字、数字变化、列表条数与数据、接口字段值、数据库字段值等。检查点要尽量细、覆盖页面和数据的多个维度，而不是只写一个「整体结果」。
-- `checkpoints` 记录用例内部的多个检查点，`status` 只允许 `passed` / `failed` / `not_run`。计划了但未执行到的检查点写 `not_run`，计入总数但不计入已测试数。测试 runner 会自动把断言的执行结果记录为检查点，落库检查也会逐项记录；通过用例至少要有 1 个检查点，否则 `CHECKPOINT_STRICT=1` 时本轮失败。
+- `checkpoints` 记录用例内部的多个检查点，`status` 只允许 `passed` / `failed` / `not_run`。计划了但未执行到的检查点写 `not_run`，计入总数但不计入已测试数。新用例优先调用测试 runner 的 `checkpoint(name, expected, actual)` 记录字段级对比；`assert` 与落库检查也会自动记录为检查点。通过用例至少要有 1 个检查点，否则 `CHECKPOINT_STRICT=1` 时本轮失败。
 - 失败 / 未执行用例可能在进入第一个检查点之前就失败（页面打不开、请求超时），此时由用例级 `expected` / `actual` 说明整体流程问题；这不等于通过用例可以省略检查点。
 - 未提供设计元数据的旧用例保持兼容，不计入元数据违规；新增用例应尽量补齐，便于检查测试单元是否遗漏正向路径与模块分布。
+
+### 10.1 检查点要求与经验
+
+**检查点不是用例结果的重复，而是流程内部的细粒度对比点。** 每个用例在设计 / 生成时就要列出检查点，不能等执行时再用「整体结果」补位：
+
+- `expected` / `actual`：描述整个页面能否打开、流程能否走通、请求是否成功等整体结果。
+- `checkpoints`：描述页面打开之后，具体按钮 / 标签文字、数字变化、列表条数与顺序、空态、字段值、接口响应字段、数据库字段值、软删除标记、副作用等是否与预期一致。
+- 一个通过用例至少要有 **1 个检查点**（复杂页面建议 3 个以上），否则 `CHECKPOINT_STRICT=1` 时本轮失败；检查点应覆盖多个维度，而不是只断言「页面能打开」。
+- 检查点名称写成中性、可读的对比描述，例如「名称输入框最大长度」「业务表新增行数」「记录状态」，并提供 `expected` / `actual` 值；不要把「发送失败」「未创建」这类断言失败文案直接当检查点名称。
+- 优先调用 `checkpoint(name, expected, actual)` 记录字段级对比；测试 runner 会自动把 `assert` 和 `db_verification.checks` 记录为检查点，但这只是历史用例的兜底，不能替代显式检查点设计。
+- 页面打不开、请求超时等在第一检查点之前就失败的情况，由整体 `expected` / `actual` 说明；但在设计阶段仍要为该用例规划检查点，不能因为可能提前失败就省略。
+- 展示与审计：检查点在用例行中使用左标签「检查点：」+ 右侧逐行列表，未通过标红；报告 `summary.json` 的 `checkpoint_coverage` 记录通过用例检查点覆盖，缺少检查点的通过用例会被 `CHECKPOINT_STRICT` 拦截。
 
 ## 11. 安全与隔离
 
@@ -322,5 +334,8 @@ HARNESS_COVERAGE=0 php /var/www/test_usecase/fixtures/db_check.php \
 - [ ] `test_point` 是否以「设计方法-」开头，且与方法、测试单元一致？
 - [ ] 每个测试单元是否至少有一条正向用例，没有被负向用例完全覆盖？
 - [ ] `operation_steps` 是否写清了用户 / 调用方的实际操作顺序，而不是代码实现？
+- [ ] 用例在设计 / 生成时是否已经列出检查点，而不是只写 expected / actual？
+- [ ] 通过用例是否至少有 1 个检查点（复杂页面建议 3 个以上），且覆盖页面打开、按钮 / 文字、数字、列表数据、字段值、落库结果等维度？
+- [ ] 检查点名称是否中性可读，并带有期望 / 实际值，而不是「失败」「未创建」这类断言错误文案？
 - [ ] 一个用例内的多个断言 / 落库检查是否用 `checkpoints` 逐个记录，未执行到的检查点是否标为 `not_run`？
 - [ ] 是否根据上一轮未覆盖行和 `coverage-trend` 生成并执行了下一轮补测？

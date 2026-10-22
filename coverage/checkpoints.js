@@ -5,7 +5,7 @@
  * 用例结果对象可选的 checkpoints 字段优先：
  *   "checkpoints": [
  *     {"name": "页面出现成功提示", "status": "passed"},
- *     {"name": "project 表新增 1 行", "status": "failed", "expected": "1 行", "actual": "0 行"}
+ *     {"name": "业务表新增 1 行", "status": "failed", "expected": "1 行", "actual": "0 行"}
  *   ]
  *
  * 检查点来源顺序：

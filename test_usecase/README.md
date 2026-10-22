@@ -71,25 +71,25 @@ coverage-trend --plan /var/www/test_usecase/reports/rounds/<轮次>/next-round-p
   "cases": [
     {
       "layer": "api",
-      "name": "创建项目后落库",
+      "name": "创建记录后落库",
       "status": "passed",
       "duration_ms": 12,
-      "expected": "项目创建成功且数据库存在记录",
+      "expected": "记录创建成功且数据库存在记录",
       "actual": "接口返回成功，数据库记录字段正确",
-      "via_page": "页面：创建项目",
+      "via_page": "页面：创建记录",
       "mutates_data": true,
       "db_verification": {
         "passed": true,
-        "checks": [{"table": "project", "id": 900001, "expect": "status=1", "actual": "status=1"}]
+        "checks": [{"table": "demo", "id": 900001, "expect": "status=1", "actual": "status=1"}]
       }
     },
     {
       "layer": "api",
-      "name": "并发邀请触发冷却",
+      "name": "并发提交触发限流",
       "status": "passed",
       "unreachable_reason": "页面无法构造并发请求",
       "mutates_data": true,
-      "db_verification": {"passed": true, "detail": "邀请表只新增 1 条记录"}
+      "db_verification": {"passed": true, "detail": "目标表只新增 1 条记录"}
     }
   ]
 }
@@ -104,7 +104,7 @@ coverage-trend --plan /var/www/test_usecase/reports/rounds/<轮次>/next-round-p
 - 校验要发生在页面 / 接口操作之后，直接查询数据库确认字段值、行数和软删除状态；**不能只看页面提示或接口返回成功**。被拒绝的写入要确认数据库没有新增或改动。
 - 页面流程、接口测试、CLI 测试都使用同一约定；`fixtures/db_check.php` 是通用查询工具。
 - **设计元数据（可选，推荐）**：`case_id`（全局唯一）、`system`（一级系统 / 模块）、`module`（二级模块）、`design_method`（设计方法）、`test_unit`（最小测试单元）、`test_point`（必须以「设计方法-」开头）、`case_kind`（`positive` / `negative`）、`operation_steps`（操作步骤文本，报告与 8080 都会展示）。提供 `design_method` 时必须同时提供 `system`、`module`、`test_unit`、`test_point` 与 `operation_steps`；同一测试单元建议先有正向用例再补负向。8080 的用例列表按 `system / module` 生成左侧模块树、右侧用例列表，未填写归入「未归类 / 未分模块」。
-- **检查点（通过用例必填）**：用例结果可带 `checkpoints: [{name, status, expected?, actual?}]`，`status` 为 `passed` / `failed` / `not_run`。检查点是细粒度对比点：按钮 / 标签文字、数字变化、列表条数与数据、字段值等；`expected` / `actual` 只描述整体页面 / 流程结果。测试 runner 会自动把断言与落库检查记录为检查点；通过用例至少要有 1 个，缺少时 `CHECKPOINT_STRICT=1` 本轮失败。
+- **检查点（通过用例必填）**：用例结果可带 `checkpoints: [{name, status, expected?, actual?}]`，`status` 为 `passed` / `failed` / `not_run`。检查点是细粒度对比点：按钮 / 标签文字、数字变化、列表条数与数据、字段值等；`expected` / `actual` 只描述整体页面 / 流程结果。新用例调用 `checkpoint(name, expected, actual)` 记录这些对比；测试 runner 也会自动把断言与落库检查记录为检查点。通过用例至少要有 1 个，缺少时 `CHECKPOINT_STRICT=1` 本轮失败。
 
 三项审计在 `run-all.sh` 中默认严格（`AUDIT_STRICT=1`）；迁移旧用例时可设 `AUDIT_STRICT=0`，或用 `PAGE_FIRST_STRICT=1` / `DATA_CHECK_STRICT=1` / `DESIGN_STRICT=1` 单独控制。
 

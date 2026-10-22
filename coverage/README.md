@@ -56,6 +56,8 @@ round-status finish --id=<轮次> --summary=<summary.json> --report-dir=<round_d
 
 用例还可以用 `checkpoints` 记录内部多个检查点（页面提示、按钮文字、数字变化、列表数据、接口字段、落库结果等）。报告统计总检查点、已测试、通过、未通过、未测试；未提供时以 `db_verification.checks` 的每一项为检查点；两者都没有时该用例没有检查点，不计入检查点统计。通过用例至少要有 1 个检查点，`CHECKPOINT_STRICT=1`（默认随 `AUDIT_STRICT` 开启）时缺少检查点会让本轮失败；失败用例在进入第一个检查点前失败时，由 `expected` / `actual` 说明整体流程问题。检查点与用例通过率分开统计，不改变用例分母。
 
+经验：检查点应在用例生成时就设计好，名称用中性的对比描述并提供期望 / 实际值，不要把断言的失败文案直接当检查点名称；`assert` / 落库检查自动记录只作为历史用例兜底。
+
 字段与报告契约见 `round-report.md`。`run-all.sh` 默认开启三项审计（`AUDIT_STRICT=1`），未通过会让本轮失败；单独跑 `round-report` 时用 `--strict-page-first` / `--strict-data-check` / `--strict-design`，或设置 `PAGE_FIRST_STRICT=1` / `DATA_CHECK_STRICT=1` / `DESIGN_STRICT=1`。只想迁移旧用例、暂不补设计元数据时，可单独设 `DESIGN_STRICT=0`。
 
 页面流程里可以用通用查询工具核对落库：
