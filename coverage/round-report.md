@@ -135,7 +135,7 @@ round-status finish --id=<轮次> --summary=/tmp/my-round/summary.json \
 
 - `finish` 会整体同步 `--report-dir` 到 `/var/log/harness-coverage/rounds/<轮次>/report/`，包括覆盖率 HTML、未覆盖行与补测计划；重新归档会替换旧报告，不会覆盖其他轮次。
 - `publish` 只同步，不改变轮次状态，适合在趋势分析前先写入摘要。
-- 严格审计：`run-all` 默认 `AUDIT_STRICT=1`；单独执行 `round-report` 时用 `--strict-page-first`、`--strict-data-check` 与 `--strict-design`（或 `PAGE_FIRST_STRICT=1` / `DATA_CHECK_STRICT=1` / `DESIGN_STRICT=1`）。未通过时报告仍会生成，但退出码为 1，`run-all` 最终失败。
+- 严格审计：`run-all` 默认 `AUDIT_STRICT=1`；单独执行 `round-report` 时用 `--strict-page-first`、`--strict-data-check`、`--strict-design` 与 `--strict-checkpoints`（或 `PAGE_FIRST_STRICT=1` / `DATA_CHECK_STRICT=1` / `DESIGN_STRICT=1` / `CHECKPOINT_STRICT=1`）。未通过时报告仍会生成，但退出码为 1，`run-all` 最终失败。
 - 兼容旧观测台：`run-all` 仍会把报告复制到 Playwright 运行目录的 `round/`（约定目录）。轮次注册目录才是 8080 与趋势工具的权威来源；没有 `round/` 不影响轮次展示。
 - `summary.json` 必须能通过 `JSON.parse`；发布前可用 `node -e "JSON.parse(require('fs').readFileSync('...','utf8'))"` 校验。
 
@@ -262,6 +262,7 @@ round-status finish --id=<轮次> --summary=/tmp/my-round/summary.json \
 - `page_first` 与 `data_check` 的 `violations` 是未达标的用例清单；`compliant` 为 false 时，严格模式会让报告失败。
 - `design_check` 记录设计元数据审计结果；`modules` 是有系统 / 模块分类的用例分布，`unclassified_cases` 是未填写两级分类的用例数。
 - `checkpoints` 记录检查点统计：`total` 为总数，`tested` 为已执行，`failed` 为未通过，`not_tested = total - tested`；`explicit_cases` / `derived_cases` 分别表示显式提供 `checkpoints` 与按落库检查推导的用例数；`cases_without_checkpoints` 表示没有检查点的用例数。
+- `checkpoint_coverage` 记录通过用例的检查点覆盖：`passed_cases`、`with_checkpoints`、`missing` 与 `violations`。每个通过用例至少要有 1 个检查点；失败 / 未执行用例在进入第一个检查点前失败时，由用例级 `expected` / `actual` 说明整体流程问题，不计入此项违规。
 - `coverage_scope` 说明覆盖率不是按测试层切开：PHP 含页面 / API / CLI / 队列，JS 含本轮全部页面流程。
 - `next_round_suggestions` 由未覆盖行文本生成，`coverage-trend --plan` 用它写下一轮计划。
 - `issues` 是 `cases` 中非 `passed` 项的汇总；问题本身就是失败用例，不另设“已知问题”区。
@@ -289,7 +290,7 @@ round-status finish --id=<轮次> --summary=/tmp/my-round/summary.json \
 
 **轮次卡片的信息分组**：第一行是轮次标识、状态、名称与时间；第二行是 PHP / JS 覆盖率（含增量）；第三行是用例通过率与前端 / 接口 / CLI 分层计数；第四行是审计结论。检查点统计在展开后的面板、模块浏览器与全量报告中显示。失败原因、覆盖口径、流程文件与运行目录等排查信息默认收进「失败摘要」折叠或 info 说明图标，点击后展开；信息位置与所属区块保持不变。
 
-打开「用例」时展示**系统 / 模块浏览器**：左侧是一级系统与二级模块树（显示通过数 / 总数、失败数，可折叠、可点击筛选），右侧是当前系统或模块的用例列表；选中一级系统会聚合其下所有模块，选中「全部用例」则显示整轮。每条用例显示所属系统 / 模块、层、操作步骤，有设计元数据的显示编号 / 设计方法 / 测试单元 / 测试点；检查点逐条一行显示「检查点：名称 · 状态」，未通过的检查点标红，失败或未执行项按「期望 → 检查点 → 实际」的顺序排列；接口 / CLI 用例显示 `via_page` 或不可达原因；写数据用例显示「落库已校验 / 未校验」，设计元数据异常单独提示。未填写系统 / 模块的用例归入「未归类 / 未分模块」。旧运行目录没有 `summary.json` 时，回退为 `meta.json` 的前端步骤与前端覆盖率，不显示全量用例按钮。
+打开「用例」时展示**系统 / 模块浏览器**：左侧是一级系统与二级模块树（显示通过数 / 总数、失败数，可折叠、可点击筛选），右侧是当前系统或模块的用例列表；选中一级系统会聚合其下所有模块，选中「全部用例」则显示整轮。每条用例显示所属系统 / 模块、层、操作步骤，有设计元数据的显示编号 / 设计方法 / 测试单元 / 测试点；检查点逐条一行显示「检查点：名称（期望 X / 实际 Y） · 状态」，未通过的检查点标红，失败或未执行项按「期望 → 检查点 → 实际」的顺序排列；`expected` / `actual` 说明整体页面 / 流程结果，检查点说明按钮文字、数字变化、列表数据、字段值等细粒度对比。接口 / CLI 用例显示 `via_page` 或不可达原因；写数据用例显示「落库已校验 / 未校验」，设计元数据异常单独提示。未填写系统 / 模块的用例归入「未归类 / 未分模块」。旧运行目录没有 `summary.json` 时，回退为 `meta.json` 的前端步骤与前端覆盖率，不显示全量用例按钮。
 
 **检查点统计**：展开后的面板 head 与模块浏览器右侧会显示「检查点 总 X · 已测试 Y · 未通过 Z · 未测试 W」。用例提供 `checkpoints` 时以其为准；否则以 `db_verification.checks` 的每一项为检查点；两者都没有时该用例没有检查点，不计入统计。用例行里的检查点使用左右结构：左侧固定「检查点：」标签，右侧逐行列出每个检查点及状态，未通过标红；全量报告中有独立「检查点统计」区，失败清单也会显示每个失败用例未通过的检查点。
 

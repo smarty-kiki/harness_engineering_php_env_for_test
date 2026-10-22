@@ -171,8 +171,49 @@ function checkpointAudit(layers) {
   };
 }
 
+/**
+ * 通过用例必须至少记录 1 个检查点。
+ * 失败 / 未执行用例可能在进入第一个检查点之前就失败，此时由用例级 expected / actual
+ * 说明整体页面 / 流程问题；它们不计入“通过用例缺少检查点”的违规。
+ */
+function checkpointCoverageAudit(layers) {
+  const violations = [];
+  let passedCases = 0;
+  let withCheckpoints = 0;
+
+  for (const [key, label] of CASE_LAYERS) {
+    const cases = layers && layers[key] && Array.isArray(layers[key].cases) ? layers[key].cases : [];
+
+    for (const item of cases) {
+      if (!item || item.synthetic === true || item.status !== 'passed') continue;
+
+      passedCases++;
+
+      if (Array.isArray(item.checkpoints) && item.checkpoints.length > 0) {
+        withCheckpoints++;
+      } else {
+        violations.push({
+          layer: key,
+          layer_name: label,
+          name: text(item.name) || '(未命名用例)',
+          reason: '通过用例没有记录检查点',
+        });
+      }
+    }
+  }
+
+  return {
+    passed_cases: passedCases,
+    with_checkpoints: withCheckpoints,
+    missing: violations.length,
+    compliant: violations.length === 0,
+    violations,
+  };
+}
+
 module.exports = {
   CASE_LAYERS,
   caseCheckpoints,
   checkpointAudit,
+  checkpointCoverageAudit,
 };

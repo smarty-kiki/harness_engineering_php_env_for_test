@@ -26,10 +26,11 @@
 #   ROUND_ID                 复用指定轮次（可选；默认复用 active，或新建）
 #   NEW_ROUND=1              忽略 active，强制新建一轮
 #   HEADLESS=1               无头运行前端流程；默认有头，便于 8080 实时画面观察
-#   AUDIT_STRICT             默认 1：页面穿透 / 数据落库 / 设计元数据校验不通过时本轮失败；0 可放宽
+#   AUDIT_STRICT             默认 1：页面穿透 / 数据落库 / 设计元数据 / 检查点校验不通过时本轮失败；0 可放宽
 #   PAGE_FIRST_STRICT        单独覆盖页面穿透审计（1 严格，0 放宽）
 #   DATA_CHECK_STRICT        单独覆盖落库校验（1 严格，0 放宽）
 #   DESIGN_STRICT            单独覆盖用例设计元数据校验（1 严格，0 放宽）
+#   CHECKPOINT_STRICT        单独覆盖检查点校验（1 严格，0 放宽）：每个通过用例必须有检查点
 #   REQUIRE_PAGE_FIRST=1     PAGE_FIRST_STRICT 的旧别名
 #
 # 产物：
@@ -52,6 +53,7 @@ AUDIT_STRICT=${AUDIT_STRICT:-1}
 PAGE_FIRST_STRICT=${PAGE_FIRST_STRICT:-$AUDIT_STRICT}
 DATA_CHECK_STRICT=${DATA_CHECK_STRICT:-$AUDIT_STRICT}
 DESIGN_STRICT=${DESIGN_STRICT:-$AUDIT_STRICT}
+CHECKPOINT_STRICT=${CHECKPOINT_STRICT:-$AUDIT_STRICT}
 if [ "${REQUIRE_PAGE_FIRST:-0}" = "1" ]; then PAGE_FIRST_STRICT=1; fi
 COVERAGE_DIR=${HARNESS_COVERAGE_DIR:-/var/log/harness-coverage}
 TEST_TAG=${TEST_TAG:-}
@@ -367,6 +369,9 @@ fi
 if [ "$DESIGN_STRICT" = "1" ]; then
     REPORT_ARGS+=(--strict-design)
 fi
+if [ "$CHECKPOINT_STRICT" = "1" ]; then
+    REPORT_ARGS+=(--strict-checkpoints)
+fi
 
 if command -v round-report >/dev/null 2>&1; then
     round-report "${REPORT_ARGS[@]}"
@@ -443,6 +448,9 @@ if (summary.design_check) {
 }
 if (summary.checkpoints) {
     console.log(`检查点：总 ${summary.checkpoints.total}，已测试 ${summary.checkpoints.tested}，通过 ${summary.checkpoints.passed}，未通过 ${summary.checkpoints.failed}，未测试 ${summary.checkpoints.not_tested}`);
+}
+if (summary.checkpoint_coverage) {
+    console.log(`检查点覆盖：通过用例 ${summary.checkpoint_coverage.with_checkpoints}/${summary.checkpoint_coverage.passed_cases}，缺少 ${summary.checkpoint_coverage.missing}`);
 }
 console.log(`轮次报告：http://127.0.0.1:8080/rounds/${summary.round_id}/report/index.html`);
 NODE

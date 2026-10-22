@@ -1233,7 +1233,9 @@
 
                 list.push({
                     name: (checkpoint && checkpoint.name) || '检查点 ' + (index + 1),
-                    status: status
+                    status: status,
+                    expected: checkpoint && checkpoint.expected ? String(checkpoint.expected) : '',
+                    actual: checkpoint && checkpoint.actual ? String(checkpoint.actual) : ''
                 });
             });
             return list;
@@ -1256,7 +1258,12 @@
                     name = (checkpoint.table ? checkpoint.table + '：' : '') + checkpoint.expect;
                 }
 
-                list.push({ name: name || '落库检查 ' + (index + 1), status: status });
+                list.push({
+                    name: name || '落库检查 ' + (index + 1),
+                    status: status,
+                    expected: checkpoint && (checkpoint.expect || checkpoint.expected) ? String(checkpoint.expect || checkpoint.expected) : '',
+                    actual: checkpoint && checkpoint.actual ? String(checkpoint.actual) : ''
+                });
             });
         }
 
@@ -1325,7 +1332,10 @@
             var checkpointItems = caseCheckpointList(item).map(function (checkpoint) {
                 var status = checkpoint.status === 'passed' ? '通过' : checkpoint.status === 'failed' ? '未通过' : '未测试';
                 var cls = checkpoint.status === 'failed' ? ' fail' : (checkpoint.status === 'not_run' ? ' skip' : '');
-                return '<span class="case-checkpoint' + cls + '">' + esc(checkpoint.name) + ' · ' + status + '</span>';
+                var comparison = checkpoint.expected || checkpoint.actual
+                    ? '（期望 ' + (checkpoint.expected || '—') + ' / 实际 ' + (checkpoint.actual || '—') + '）'
+                    : '';
+                return '<span class="case-checkpoint' + cls + '">' + esc(checkpoint.name + comparison) + ' · ' + status + '</span>';
             }).join('');
 
             if (checkpointItems) {

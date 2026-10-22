@@ -104,7 +104,7 @@ coverage-trend --plan /var/www/test_usecase/reports/rounds/<轮次>/next-round-p
 - 校验要发生在页面 / 接口操作之后，直接查询数据库确认字段值、行数和软删除状态；**不能只看页面提示或接口返回成功**。被拒绝的写入要确认数据库没有新增或改动。
 - 页面流程、接口测试、CLI 测试都使用同一约定；`fixtures/db_check.php` 是通用查询工具。
 - **设计元数据（可选，推荐）**：`case_id`（全局唯一）、`system`（一级系统 / 模块）、`module`（二级模块）、`design_method`（设计方法）、`test_unit`（最小测试单元）、`test_point`（必须以「设计方法-」开头）、`case_kind`（`positive` / `negative`）、`operation_steps`（操作步骤文本，报告与 8080 都会展示）。提供 `design_method` 时必须同时提供 `system`、`module`、`test_unit`、`test_point` 与 `operation_steps`；同一测试单元建议先有正向用例再补负向。8080 的用例列表按 `system / module` 生成左侧模块树、右侧用例列表，未填写归入「未归类 / 未分模块」。
-- **检查点（可选，推荐）**：用例结果可带 `checkpoints: [{name, status, expected?, actual?}]`，`status` 为 `passed` / `failed` / `not_run`。报告统计总检查点、已测试、通过、未通过、未测试；未提供时以 `db_verification.checks` 的每一项为检查点；两者都没有时该用例没有检查点，不计入检查点统计。
+- **检查点（通过用例必填）**：用例结果可带 `checkpoints: [{name, status, expected?, actual?}]`，`status` 为 `passed` / `failed` / `not_run`。检查点是细粒度对比点：按钮 / 标签文字、数字变化、列表条数与数据、字段值等；`expected` / `actual` 只描述整体页面 / 流程结果。测试 runner 会自动把断言与落库检查记录为检查点；通过用例至少要有 1 个，缺少时 `CHECKPOINT_STRICT=1` 本轮失败。
 
 三项审计在 `run-all.sh` 中默认严格（`AUDIT_STRICT=1`）；迁移旧用例时可设 `AUDIT_STRICT=0`，或用 `PAGE_FIRST_STRICT=1` / `DATA_CHECK_STRICT=1` / `DESIGN_STRICT=1` 单独控制。
 
@@ -127,8 +127,8 @@ export PRJ_HOME=/var/www/your-project
 - `TEST_SUITE_DIR`：平台目录，默认脚本所在目录
 - `ROUND_ID` / `NEW_ROUND`：复用指定轮次 / 强制新建
 - `HEADLESS=1`：前端无头运行；默认有头，便于实时画面观察
-- `AUDIT_STRICT`：默认 1，页面穿透、落库校验或用例设计元数据未通过时本轮失败
-- `PAGE_FIRST_STRICT` / `DATA_CHECK_STRICT` / `DESIGN_STRICT`：单独覆盖三项审计；未填写设计元数据的旧用例不会被判错
+- `AUDIT_STRICT`：默认 1，页面穿透、落库校验、用例设计元数据或检查点未通过时本轮失败
+- `PAGE_FIRST_STRICT` / `DATA_CHECK_STRICT` / `DESIGN_STRICT` / `CHECKPOINT_STRICT`：单独覆盖四项审计；未填写设计元数据的旧用例不会被判错，但通过用例必须有检查点
 - `REQUIRE_PAGE_FIRST=1`：旧版页面穿透严格开关的别名
 
 每轮流程：

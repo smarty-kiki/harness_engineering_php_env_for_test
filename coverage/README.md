@@ -54,7 +54,7 @@ round-status finish --id=<轮次> --summary=<summary.json> --report-dir=<round_d
 
 第三条是**可选的用例设计元数据**（推荐新用例填写）：`case_id`、`system`、`module`、`design_method`、`test_unit`、`test_point`、`case_kind`、`operation_steps`。`system` / `module` 是一二级分类，8080 的用例列表按它生成左侧系统 / 模块树、右侧用例列表。`case-design.js` 校验设计方法是否合法、`test_point` 是否以「设计方法-」开头、提供 `design_method` 时是否带齐系统 / 模块 / 测试单元 / 操作步骤、`case_id` 是否重复，并统计设计方法分布、各测试单元的正向 / 负向用例、系统 / 模块分布。未填写元数据的旧用例保持兼容，不参与强校验。
 
-用例还可以用 `checkpoints` 记录内部多个检查点（页面提示、接口字段、落库结果等）。报告统计总检查点、已测试、通过、未通过、未测试；未提供时以 `db_verification.checks` 的每一项为检查点；两者都没有时该用例没有检查点，不计入检查点统计。它们与用例通过率分开统计，不改变用例分母。
+用例还可以用 `checkpoints` 记录内部多个检查点（页面提示、按钮文字、数字变化、列表数据、接口字段、落库结果等）。报告统计总检查点、已测试、通过、未通过、未测试；未提供时以 `db_verification.checks` 的每一项为检查点；两者都没有时该用例没有检查点，不计入检查点统计。通过用例至少要有 1 个检查点，`CHECKPOINT_STRICT=1`（默认随 `AUDIT_STRICT` 开启）时缺少检查点会让本轮失败；失败用例在进入第一个检查点前失败时，由 `expected` / `actual` 说明整体流程问题。检查点与用例通过率分开统计，不改变用例分母。
 
 字段与报告契约见 `round-report.md`。`run-all.sh` 默认开启三项审计（`AUDIT_STRICT=1`），未通过会让本轮失败；单独跑 `round-report` 时用 `--strict-page-first` / `--strict-data-check` / `--strict-design`，或设置 `PAGE_FIRST_STRICT=1` / `DATA_CHECK_STRICT=1` / `DESIGN_STRICT=1`。只想迁移旧用例、暂不补设计元数据时，可单独设 `DESIGN_STRICT=0`。
 

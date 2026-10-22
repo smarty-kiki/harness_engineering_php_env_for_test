@@ -2,7 +2,7 @@
  * 单轮全量测试报告：合并前端步骤、接口用例、CLI 用例的通过率，
  * 以及本轮的前端 JS / 后端 PHP 覆盖率，生成 summary.json、summary.md 与 index.html。
  *
- * 用法：round-report <round_dir> [<playwright_run_dir>] [--previous=<summary.json>] [--strict-page-first] [--strict-data-check] [--strict-design]
+ * 用法：round-report <round_dir> [<playwright_run_dir>] [--previous=<summary.json>] [--strict-page-first] [--strict-data-check] [--strict-design] [--strict-checkpoints]
  *
  * 本轮语义：
  *   - PHP 覆盖率 = 本轮全部页面 / API / CLI / 队列执行，不只是接口与 CLI；
@@ -34,7 +34,7 @@ try {
 }
 
 const { designAudit } = require('./case-design');
-const { checkpointAudit, caseCheckpoints } = require('./checkpoints');
+const { checkpointAudit, caseCheckpoints, checkpointCoverageAudit } = require('./checkpoints');
 
 const argv = process.argv.slice(2);
 
@@ -60,6 +60,7 @@ const auditStrict = process.env.AUDIT_STRICT === '1';
 const strictPageFirst = argv.includes('--strict-page-first') || process.env.PAGE_FIRST_STRICT === '1' || auditStrict;
 const strictDataCheck = argv.includes('--strict-data-check') || process.env.DATA_CHECK_STRICT === '1' || auditStrict;
 const strictDesign = argv.includes('--strict-design') || process.env.DESIGN_STRICT === '1' || auditStrict;
+const strictCheckpoints = argv.includes('--strict-checkpoints') || process.env.CHECKPOINT_STRICT === '1' || auditStrict;
 const positional = [];
 const valueFlags = new Set(['--previous']);
 
@@ -75,7 +76,7 @@ for (let i = 0; i < argv.length; i++) {
 }
 
 if (!positional[0] && !process.env.ROUND_DIR) {
-  console.log(`用法：round-report <round_dir> [<playwright_run_dir>] [--previous=<summary.json>] [--strict-page-first] [--strict-data-check] [--strict-design]
+  console.log(`用法：round-report <round_dir> [<playwright_run_dir>] [--previous=<summary.json>] [--strict-page-first] [--strict-data-check] [--strict-design] [--strict-checkpoints]
 
 round_dir 需包含本轮测试结果：
   frontend-cases.json       前端用例（status: passed / failed / not_run）
@@ -471,8 +472,11 @@ function renderReportCaseItem(item, system, module) {
   const checkpointItems = checkpoints.map((checkpoint) => {
     const statusText = checkpoint.status === 'passed' ? '通过' : checkpoint.status === 'failed' ? '未通过' : '未测试';
     const extraClass = checkpoint.status === 'failed' ? ' fail' : (checkpoint.status === 'not_run' ? ' skip' : '');
+    const comparison = checkpoint.expected || checkpoint.actual
+      ? `（期望 ${checkpoint.expected || '—'} / 实际 ${checkpoint.actual || '—'}）`
+      : '';
 
-    return `<p class="report-case-checkpoint${extraClass}">${esc(checkpoint.name)} · ${statusText}</p>`;
+    return `<p class="report-case-checkpoint${extraClass}">${esc(checkpoint.name + comparison)} · ${statusText}</p>`;
   }).join('');
   const checkpointHtml = checkpointItems
     ? `<div class="report-case-checkpoints"><span class="report-checkpoint-label">检查点：</span><div class="report-checkpoint-list">${checkpointItems}</div></div>`
@@ -740,6 +744,8 @@ function renderHtml(summary) {
     <div class="section-title">检查点统计</div>
     <div class="card">
         <p>总检查点 ${checkpoints.total} 个 · 已测试 ${checkpoints.tested} 个 · 通过 ${checkpoints.passed} 个 · 未通过 ${checkpoints.failed} 个 · 未测试 ${checkpoints.not_tested} 个</p>
+        <p>通过用例检查点覆盖 ${summary.checkpoint_coverage ? summary.checkpoint_coverage.with_checkpoints : 0} / ${summary.checkpoint_coverage ? summary.checkpoint_coverage.passed_cases : 0}${summary.checkpoint_coverage && summary.checkpoint_coverage.missing ? ' · 缺少 ' + summary.checkpoint_coverage.missing + ' 条' : ' · 全部覆盖'}</p>
+        ${summary.checkpoint_coverage && summary.checkpoint_coverage.violations.length ? `<ul class="violations">${summary.checkpoint_coverage.violations.slice(0, 30).map((item) => `<li>[${esc(item.layer_name)}] ${esc(item.name)} — ${esc(item.reason)}</li>`).join('')}</ul>` : ''}
         <p class="meta">分层：${layerCheckpointText} · 显式记录 ${checkpoints.explicit_cases} 条用例，按落库检查推导 ${checkpoints.derived_cases} 条，无检查点 ${checkpoints.cases_without_checkpoints || 0} 条。</p>
         ${checkpointViolations}
         <p class="meta" style="margin-top:8px">口径：用例提供 <code>checkpoints</code> 时以其为准；否则以 <code>db_verification.checks</code> 中的每一项为检查点；两者都没有时该用例没有检查点，不计入检查点统计。未测试 = 总数 - 已测试。</p>
@@ -865,6 +871,7 @@ function buildSummary() {
   const dataCheck = dataCheckAudit(layers);
   const designCheck = designAudit(layers);
   const checkpoints = checkpointAudit(layers);
+  const checkpointCoverage = checkpointCoverageAudit(layers);
   const previous = previousSummary();
   const coverage = {
     php_full: parsePhpCoverage(phpFullText),
@@ -901,6 +908,7 @@ function buildSummary() {
     data_check: dataCheck,
     design_check: designCheck,
     checkpoints,
+    checkpoint_coverage: checkpointCoverage,
     next_round_suggestions: {
       php: uncoveredSuggestions(readText(path.join(roundDir, 'php-uncovered.txt')), 8),
       js: uncoveredSuggestions(readText(path.join(roundDir, 'js-uncovered.txt')), 8),
@@ -977,6 +985,8 @@ ${dataCheck.violations.length ? dataCheck.violations.map((item) => `- [${item.la
 - 未测试：${checkpoints.not_tested}
 - 分层：${layerCheckpointText}
 - 显式记录检查点的用例：${checkpoints.explicit_cases}；按落库检查推导：${checkpoints.derived_cases}；无检查点：${checkpoints.cases_without_checkpoints || 0}
+- 通过用例检查点覆盖：${summary.checkpoint_coverage ? summary.checkpoint_coverage.with_checkpoints : 0} / ${summary.checkpoint_coverage ? summary.checkpoint_coverage.passed_cases : 0}${summary.checkpoint_coverage && summary.checkpoint_coverage.missing ? '（缺少 ' + summary.checkpoint_coverage.missing + ' 条）' : ''}
+${summary.checkpoint_coverage && summary.checkpoint_coverage.violations.length ? summary.checkpoint_coverage.violations.map((item) => `- [${item.layer_name}] ${item.name}：${item.reason}`).join('\n') : '- 全部通过用例都记录了检查点'}
 
 ${checkpointViolationLines}
 
@@ -1040,6 +1050,11 @@ ${suggestionLines}
     process.exitCode = 1;
   }
 
+  if (strictCheckpoints && !checkpointCoverage.compliant) {
+    console.error(`通过用例检查点校验未通过：${checkpointCoverage.missing} 条通过用例没有记录检查点`);
+    process.exitCode = 1;
+  }
+
   return summary;
 }
 
@@ -1049,4 +1064,5 @@ console.log(`页面穿透：页面 ${summary.page_first.frontend_cases} / 关联
 console.log(`落库校验：写数据 ${summary.data_check.mutating_cases} / 已校验 ${summary.data_check.verified} / 未校验 ${summary.data_check.unverified}`);
 console.log(`设计元数据：${summary.design_check.metadata_cases}/${summary.design_check.total_cases} 条 · 操作步骤 ${summary.design_check.operation_steps_cases} 条 · 元数据错误 ${summary.design_check.violations.length} 条`);
 console.log(`检查点：总 ${summary.checkpoints.total} · 已测试 ${summary.checkpoints.tested} · 通过 ${summary.checkpoints.passed} · 未通过 ${summary.checkpoints.failed} · 未测试 ${summary.checkpoints.not_tested}`);
+console.log(`检查点覆盖：通过用例 ${summary.checkpoint_coverage.with_checkpoints}/${summary.checkpoint_coverage.passed_cases}，缺少 ${summary.checkpoint_coverage.missing} 条`);
 console.log(`报告：${path.join(roundDir, 'index.html')}`);
