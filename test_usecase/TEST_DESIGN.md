@@ -284,7 +284,7 @@ HARNESS_COVERAGE=0 php /var/www/test_usecase/fixtures/db_check.php \
 - `test_unit` 相同的用例应同时包含正向与负向；只写负向时报告会给出补正向提示。
 - 提供 `design_method` 时必须同时提供 `system`、`module`、`test_unit`、`test_point` 与 `operation_steps`；缺少任一字段会被报告判为元数据错误（`DESIGN_STRICT=1` 时本轮失败）。
 - `operation_steps` 写用户 / 调用方的实际操作顺序（中文分号或编号），不是代码实现说明；报告失败清单与 8080 用例明细会直接展示这段文本。
-- `checkpoints` 记录用例内部的多个检查点，`status` 只允许 `passed` / `failed` / `not_run`。计划了但未执行到的检查点写 `not_run`，计入总数但不计入已测试数。未提供 `checkpoints` 时，用例本身算 1 个检查点，`db_verification.checks` 每一项再算 1 个。
+- `checkpoints` 记录用例内部的多个检查点，`status` 只允许 `passed` / `failed` / `not_run`。计划了但未执行到的检查点写 `not_run`，计入总数但不计入已测试数。未提供 `checkpoints` 时，以 `db_verification.checks` 的每一项为检查点；两者都没有时该用例没有检查点，不计入检查点统计。
 - 未提供设计元数据的旧用例保持兼容，不计入元数据违规；新增用例应尽量补齐，便于检查测试单元是否遗漏正向路径与模块分布。
 
 ## 11. 安全与隔离

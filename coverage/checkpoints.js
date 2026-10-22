@@ -8,11 +8,11 @@
  *     {"name": "project 表新增 1 行", "status": "failed", "expected": "1 行", "actual": "0 行"}
  *   ]
  *
- * 兼容旧用例的推导顺序：
+ * 检查点来源顺序：
  *   1. 显式 checkpoints（非空数组）；
- *   2. 没有显式 checkpoints 时，用例本身算 1 个检查点；db_verification.checks
- *      里的每一项再算 1 个检查点（页面 / 接口操作后的落库检查）；
- *   3. 都没有时，只有用例本身这 1 个检查点。
+ *   2. 没有显式 checkpoints 时，db_verification.checks 里的每一项算 1 个检查点
+ *      （页面 / 接口操作后的落库检查）；
+ *   3. 两者都没有时，该用例没有检查点，不用「整体结果」占位，也不计入检查点统计。
  *
  * status 只接受 passed / failed / not_run。not_run 表示计划了但没有执行，
  * 计入总数与未测试数，不计入已测试数。
@@ -49,14 +49,7 @@ function caseCheckpoints(item) {
     });
   }
 
-  const checkpoints = [{
-    name: text(item.name) || '(未命名用例)',
-    status: normalizeStatus(item.status),
-    source: 'case',
-    expected: text(item.expected),
-    actual: text(item.actual),
-  }];
-
+  const checkpoints = [];
   const dbVerification = item.db_verification;
 
   if (dbVerification && typeof dbVerification === 'object' && Array.isArray(dbVerification.checks)) {
@@ -100,6 +93,7 @@ function checkpointAudit(layers) {
   let notTested = 0;
   let explicitCases = 0;
   let derivedCases = 0;
+  let casesWithoutCheckpoints = 0;
 
   for (const [key, label] of CASE_LAYERS) {
     const cases = layers && layers[key] && Array.isArray(layers[key].cases) ? layers[key].cases : [];
@@ -108,11 +102,14 @@ function checkpointAudit(layers) {
     for (const item of cases) {
       if (!item || item.synthetic === true) continue;
 
+      const checkpoints = caseCheckpoints(item);
       const explicit = Array.isArray(item.checkpoints) && item.checkpoints.length > 0;
-      if (explicit) explicitCases++;
-      else derivedCases++;
 
-      for (const checkpoint of caseCheckpoints(item)) {
+      if (explicit) explicitCases++;
+      else if (checkpoints.length > 0) derivedCases++;
+      else casesWithoutCheckpoints++;
+
+      for (const checkpoint of checkpoints) {
         total++;
         layerStat.total++;
 
@@ -168,6 +165,7 @@ function checkpointAudit(layers) {
     pass_rate: tested > 0 ? Math.round((passed / tested) * 10000) / 100 : 0,
     explicit_cases: explicitCases,
     derived_cases: derivedCases,
+    cases_without_checkpoints: casesWithoutCheckpoints,
     by_layer: byLayer,
     violations,
   };

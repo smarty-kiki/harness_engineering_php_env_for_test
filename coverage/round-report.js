@@ -468,13 +468,15 @@ function renderReportCaseItem(item, system, module) {
   if (item.test_unit) design.push('测试单元 ' + item.test_unit);
   if (item.test_point) design.push('测试点 ' + item.test_point);
 
-  const checkpointLines = checkpoints.map((checkpoint) => {
-    const name = checkpoint.source === 'case' ? '整体结果' : checkpoint.name;
+  const checkpointItems = checkpoints.map((checkpoint) => {
     const statusText = checkpoint.status === 'passed' ? '通过' : checkpoint.status === 'failed' ? '未通过' : '未测试';
     const extraClass = checkpoint.status === 'failed' ? ' fail' : (checkpoint.status === 'not_run' ? ' skip' : '');
 
-    return `<p class="report-case-checkpoint${extraClass}">检查点：${esc(name)} · ${statusText}</p>`;
+    return `<p class="report-case-checkpoint${extraClass}">${esc(checkpoint.name)} · ${statusText}</p>`;
   }).join('');
+  const checkpointHtml = checkpointItems
+    ? `<div class="report-case-checkpoints"><span class="report-checkpoint-label">检查点：</span><div class="report-checkpoint-list">${checkpointItems}</div></div>`
+    : '';
 
   return `<li class="report-case" data-case-system="${esc(system.key)}" data-case-module="${esc(module.key)}">
       <div class="report-case-head">
@@ -485,7 +487,7 @@ function renderReportCaseItem(item, system, module) {
       ${design.length ? `<p class="report-case-design">${esc(design.join(' · '))}</p>` : ''}
       <p class="report-case-steps">操作步骤：${esc(item.operation_steps || '历史用例未记录')}</p>
       ${item.status !== 'passed' ? `<p class="report-case-expected">期望：${esc(item.expected || '—')}</p>` : ''}
-      ${checkpointLines}
+      ${checkpointHtml}
       ${item.status !== 'passed' ? `<p class="report-case-actual">实际：${esc(item.actual || '—')}</p>` : ''}
       ${notes.length ? `<p class="report-case-note">${esc(notes.join(' · '))}</p>` : ''}
     </li>`;
@@ -693,6 +695,10 @@ function renderHtml(summary) {
     .report-case-tags { color:var(--muted); font-size:11.5px; }
     .report-case-design, .report-case-note, .report-case-steps, .report-case-expected, .report-case-actual, .report-case-checkpoint { margin:4px 0 0; color:var(--muted); font-size:12px; line-height:1.55; word-break:break-word; }
     .report-case-expected, .report-case-actual { color:var(--err); }
+    .report-case-checkpoints { display:grid; grid-template-columns:70px minmax(0,1fr); gap:1px 6px; margin-top:4px; }
+    .report-checkpoint-label { color:var(--muted); font-size:12px; }
+    .report-checkpoint-list { display:flex; flex-direction:column; gap:1px; min-width:0; }
+    .report-case-checkpoint { margin:0; color:var(--muted); font-size:12px; line-height:1.55; word-break:break-word; }
     .report-case-checkpoint.fail { color:var(--err); }
     .report-case-checkpoint.skip { color:var(--warn); }
     @media (max-width:760px) { .wrap{padding:20px 12px 36px;} .expected,.actual{min-width:160px;} .report-case-browser{grid-template-columns:1fr;} .report-case-sidebar{max-height:220px;} .report-case-list{max-height:none;} }
@@ -734,9 +740,9 @@ function renderHtml(summary) {
     <div class="section-title">检查点统计</div>
     <div class="card">
         <p>总检查点 ${checkpoints.total} 个 · 已测试 ${checkpoints.tested} 个 · 通过 ${checkpoints.passed} 个 · 未通过 ${checkpoints.failed} 个 · 未测试 ${checkpoints.not_tested} 个</p>
-        <p class="meta">分层：${layerCheckpointText} · 显式记录 ${checkpoints.explicit_cases} 条用例，按落库检查 / 用例结果推导 ${checkpoints.derived_cases} 条。</p>
+        <p class="meta">分层：${layerCheckpointText} · 显式记录 ${checkpoints.explicit_cases} 条用例，按落库检查推导 ${checkpoints.derived_cases} 条，无检查点 ${checkpoints.cases_without_checkpoints || 0} 条。</p>
         ${checkpointViolations}
-        <p class="meta" style="margin-top:8px">口径：用例提供 <code>checkpoints</code> 时以其为准；否则用例本身算 1 个检查点，<code>db_verification.checks</code> 中的每一项再算 1 个。未测试 = 总数 - 已测试。</p>
+        <p class="meta" style="margin-top:8px">口径：用例提供 <code>checkpoints</code> 时以其为准；否则以 <code>db_verification.checks</code> 中的每一项为检查点；两者都没有时该用例没有检查点，不计入检查点统计。未测试 = 总数 - 已测试。</p>
     </div>
 
     <div class="section-title">覆盖率（本轮完整执行）</div>
@@ -970,11 +976,11 @@ ${dataCheck.violations.length ? dataCheck.violations.map((item) => `- [${item.la
 - 未通过：${checkpoints.failed}
 - 未测试：${checkpoints.not_tested}
 - 分层：${layerCheckpointText}
-- 显式记录检查点的用例：${checkpoints.explicit_cases}；按落库检查 / 用例结果推导：${checkpoints.derived_cases}
+- 显式记录检查点的用例：${checkpoints.explicit_cases}；按落库检查推导：${checkpoints.derived_cases}；无检查点：${checkpoints.cases_without_checkpoints || 0}
 
 ${checkpointViolationLines}
 
-口径：用例提供 checkpoints 时以其为准；否则用例本身算 1 个检查点，db_verification.checks 中的每一项再算 1 个。
+口径：用例提供 checkpoints 时以其为准；否则以 db_verification.checks 中的每一项为检查点；两者都没有时该用例没有检查点，不计入检查点统计。
 
 ## 用例设计元数据
 
