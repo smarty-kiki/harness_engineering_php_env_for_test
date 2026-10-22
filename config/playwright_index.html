@@ -708,6 +708,7 @@
     }
 
     .case-failure { color: var(--err); }
+    .case-checkpoint-fail { color: var(--err); }
     .case-note { color: var(--muted); }
     .case-note.err { color: var(--err); }
     .case-note.ok { color: var(--ok); }
@@ -1153,7 +1154,7 @@
         return stats;
     }
 
-    function checkpointStatsAdd(stats, status) {
+    function checkpointStatsAdd(stats, status, name) {
         stats.total++;
 
         if (status === 'not_run') {
@@ -1163,17 +1164,21 @@
 
         stats.tested++;
 
-        if (status === 'passed') stats.passed++;
-        else stats.failed++;
+        if (status === 'passed') {
+            stats.passed++;
+        } else {
+            stats.failed++;
+            if (name) { stats.failed_names.push(name); }
+        }
     }
 
     function caseCheckpointStats(item) {
-        var stats = { total: 0, tested: 0, passed: 0, failed: 0, not_run: 0 };
+        var stats = { total: 0, tested: 0, passed: 0, failed: 0, not_run: 0, failed_names: [] };
         var explicit = Array.isArray(item.checkpoints) ? item.checkpoints : [];
 
         if (explicit.length) {
-            explicit.forEach(function (checkpoint) {
-                checkpointStatsAdd(stats, checkpoint && checkpoint.status);
+            explicit.forEach(function (checkpoint, index) {
+                checkpointStatsAdd(stats, checkpoint && checkpoint.status, (checkpoint && checkpoint.name) || '检查点 ' + (index + 1));
             });
             return stats;
         }
@@ -1182,7 +1187,7 @@
 
         var db = item.db_verification;
         if (db && Array.isArray(db.checks)) {
-            db.checks.forEach(function (checkpoint) {
+            db.checks.forEach(function (checkpoint, index) {
                 var status = checkpoint && checkpoint.status;
 
                 if (!status) {
@@ -1191,7 +1196,7 @@
                         : (db.passed === false ? 'failed' : 'passed');
                 }
 
-                checkpointStatsAdd(stats, status);
+                checkpointStatsAdd(stats, status, (checkpoint && checkpoint.name) || '落库检查 ' + (index + 1));
             });
         }
 
@@ -1252,17 +1257,35 @@
             }
 
             var caseCheckpoints = caseCheckpointStats(item);
+            var checkpointNote = '';
 
-            if ((Array.isArray(item.checkpoints) && item.checkpoints.length) || caseCheckpoints.total > 1) {
-                notes.push('<span class="case-note">检查点：' + caseCheckpoints.passed + '/' + caseCheckpoints.total
-                    + ' 通过' + (caseCheckpoints.failed ? '，未通过 ' + caseCheckpoints.failed : '')
-                    + (caseCheckpoints.not_run ? '，未测 ' + caseCheckpoints.not_run : '') + '</span>');
+            if ((Array.isArray(item.checkpoints) && item.checkpoints.length) || caseCheckpoints.total > 1 || failed || notRun) {
+                checkpointNote = '<span class="case-note">检查点：' + caseCheckpoints.passed + '/' + caseCheckpoints.total + ' 通过';
+
+                if (caseCheckpoints.failed) {
+                    checkpointNote += '<span class="case-checkpoint-fail">，未通过 ' + caseCheckpoints.failed;
+
+                    if (caseCheckpoints.failed_names.length) {
+                        checkpointNote += '（' + esc(caseCheckpoints.failed_names.slice(0, 3).join('、'))
+                            + (caseCheckpoints.failed_names.length > 3 ? ' 等' : '') + '）';
+                    }
+
+                    checkpointNote += '</span>';
+                }
+
+                if (caseCheckpoints.not_run) { checkpointNote += '，未测 ' + caseCheckpoints.not_run; }
+                checkpointNote += '</span>';
             }
 
             notes.push('<span class="case-note">操作步骤：' + esc(item.operation_steps || '历史用例未记录') + '</span>');
 
             if (failed || notRun) {
                 if (item.expected) { notes.push('<span class="case-failure">期望：' + esc(item.expected) + '</span>'); }
+            }
+
+            if (checkpointNote) { notes.push(checkpointNote); }
+
+            if (failed || notRun) {
                 if (item.actual) { notes.push('<span class="case-failure">实际：' + esc(item.actual.slice(0, 600)) + '</span>'); }
             }
 

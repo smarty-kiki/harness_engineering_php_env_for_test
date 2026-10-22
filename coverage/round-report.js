@@ -459,13 +459,6 @@ function renderReportCaseItem(item, system, module) {
   const notRunChecks = checkpoints.filter((checkpoint) => checkpoint.status === 'not_run');
   const notes = [];
 
-  if (checkpoints.length) {
-    notes.push(`检查点 ${passedChecks.length}/${checkpoints.length} 通过`
-      + (failedChecks.length ? `，未通过 ${failedChecks.length}` : '')
-      + (notRunChecks.length ? `，未测试 ${notRunChecks.length}` : '')
-      + (failedChecks.length ? `（${failedChecks.map((checkpoint) => checkpoint.name).join('、')}）` : ''));
-  }
-
   if (item.via_page) notes.push('穿透页面：' + item.via_page);
   else if (item.unreachable_reason) notes.push('页面不可达：' + item.unreachable_reason);
 
@@ -478,6 +471,17 @@ function renderReportCaseItem(item, system, module) {
   if (item.test_unit) design.push('测试单元 ' + item.test_unit);
   if (item.test_point) design.push('测试点 ' + item.test_point);
 
+  let checkpointHtml = '';
+
+  if (checkpoints.length) {
+    checkpointHtml = `<p class="report-case-checkpoint">检查点 ${passedChecks.length}/${checkpoints.length} 通过`
+      + (failedChecks.length
+        ? `<span class="report-case-checkpoint-fail">，未通过 ${failedChecks.length}（${esc(failedChecks.map((checkpoint) => checkpoint.name).join('、'))}）</span>`
+        : '')
+      + (notRunChecks.length ? `，未测试 ${notRunChecks.length}` : '')
+      + '</p>';
+  }
+
   return `<li class="report-case" data-case-system="${esc(system.key)}" data-case-module="${esc(module.key)}">
       <div class="report-case-head">
         <span class="badge ${status}">${statusText}</span>
@@ -485,9 +489,11 @@ function renderReportCaseItem(item, system, module) {
         <span class="report-case-tags">${esc(system.name)} / ${esc(module.name)} · ${esc(item._layer)}</span>
       </div>
       ${design.length ? `<p class="report-case-design">${esc(design.join(' · '))}</p>` : ''}
-      <p class="report-case-note">${esc(notes.join(' · ') || '无附加校验信息')}</p>
       <p class="report-case-steps">操作步骤：${esc(item.operation_steps || '历史用例未记录')}</p>
-      ${item.status !== 'passed' ? `<p class="report-case-result"><span>期望：${esc(item.expected || '—')}</span><span>实际：${esc(item.actual || '—')}</span></p>` : ''}
+      ${item.status !== 'passed' ? `<p class="report-case-expected">期望：${esc(item.expected || '—')}</p>` : ''}
+      ${checkpointHtml}
+      ${item.status !== 'passed' ? `<p class="report-case-actual">实际：${esc(item.actual || '—')}</p>` : ''}
+      ${notes.length ? `<p class="report-case-note">${esc(notes.join(' · '))}</p>` : ''}
     </li>`;
 }
 
@@ -691,8 +697,9 @@ function renderHtml(summary) {
     .report-case-head { display:flex; flex-wrap:wrap; align-items:center; gap:5px 10px; }
     .report-case-name { font-weight:600; word-break:break-word; }
     .report-case-tags { color:var(--muted); font-size:11.5px; }
-    .report-case-design, .report-case-note, .report-case-steps, .report-case-result { margin:4px 0 0; color:var(--muted); font-size:12px; line-height:1.55; word-break:break-word; }
-    .report-case-result { display:grid; gap:2px; color:var(--err); }
+    .report-case-design, .report-case-note, .report-case-steps, .report-case-expected, .report-case-actual, .report-case-checkpoint { margin:4px 0 0; color:var(--muted); font-size:12px; line-height:1.55; word-break:break-word; }
+    .report-case-expected, .report-case-actual { color:var(--err); }
+    .report-case-checkpoint-fail { color:var(--err); }
     @media (max-width:760px) { .wrap{padding:20px 12px 36px;} .expected,.actual{min-width:160px;} .report-case-browser{grid-template-columns:1fr;} .report-case-sidebar{max-height:220px;} .report-case-list{max-height:none;} }
 </style>
 </head>
