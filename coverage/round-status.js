@@ -153,6 +153,20 @@ function update(options) {
     patch.coverage = Object.assign({}, patch.coverage, { js: coveragePercent(options['coverage-js']) });
   }
 
+  const checkpointFields = {
+    'checkpoint-total': 'total',
+    'checkpoint-tested': 'tested',
+    'checkpoint-passed': 'passed',
+    'checkpoint-failed': 'failed',
+    'checkpoint-not-tested': 'not_tested',
+  };
+
+  for (const [optionName, field] of Object.entries(checkpointFields)) {
+    if (options[optionName] !== undefined) {
+      patch.checkpoints = Object.assign({}, patch.checkpoints, { [field]: numberOption(options, optionName) });
+    }
+  }
+
   if (layer) {
     const layerPatch = {};
 

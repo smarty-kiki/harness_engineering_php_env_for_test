@@ -68,10 +68,16 @@ summary.json / summary.md / index.html
   "actual": "接口返回成功，数据库记录字段正确",
   "operation_steps": "1、提交创建项目请求；2、查询 project 表；3、核对名称与状态",
   "case_id": "PMS-项目-001",
+  "system": "项目管理系统",
+  "module": "项目",
   "design_method": "场景检查",
   "test_unit": "创建项目按钮",
   "test_point": "场景检查-合法名称创建项目并落库",
   "case_kind": "positive",
+  "checkpoints": [
+    {"name": "接口返回 code=0", "status": "passed"},
+    {"name": "project 表新增 1 行", "status": "failed", "expected": "1 行", "actual": "0 行"}
+  ],
   "via_page": "页面：创建项目",
   "mutates_data": true,
   "db_verification": {
@@ -86,7 +92,9 @@ summary.json / summary.md / index.html
 - `status`：`passed` / `failed` / `not_run`；失败和未执行必须写 `expected` 与 `actual`。
 - **页面优先**：接口 / CLI 用例二选一写 `via_page`（页面用例名，必须能在本轮前端用例中找到）或 `unreachable_reason`（页面不可达的具体原因）。
 - **落库校验**：任何写数据的用例（新增、修改、删除、状态流转，以及应被拒绝的写入）写 `mutates_data: true`，并提供非空的 `db_verification`。可以是说明字符串、检查项数组，或 `{ checks: [...], detail, actual, passed }` 对象；仅接口返回成功不算校验。
-- **设计元数据（可选，推荐）**：`case_id`、`design_method`、`test_unit`、`test_point`、`case_kind`、`operation_steps`。提供 `design_method` 时，报告会校验方法是否合法、`test_point` 是否以「设计方法-」开头、是否同时给出 `test_unit` 与 `operation_steps`，并统计各设计方法、各测试单元的正向 / 负向用例与只有负向用例的测试单元。未提供元数据的旧用例保持兼容。
+- **系统 / 模块（一二级分类）**：`system` 是一级分类（业务系统 / 一级模块），`module` 是二级分类。8080 的用例列表按这两级生成左侧模块树、右侧用例列表；未填写的用例归入「未归类 / 未分模块」。提供 `design_method` 时必须同时提供 `system` 与 `module`。
+- **设计元数据（可选，推荐）**：`case_id`、`system`、`module`、`design_method`、`test_unit`、`test_point`、`case_kind`、`operation_steps`。提供 `design_method` 时，报告会校验方法是否合法、`test_point` 是否以「设计方法-」开头、是否同时给出系统 / 模块 / `test_unit` / `operation_steps`，并统计各设计方法、各测试单元的正向 / 负向用例与只有负向用例的测试单元。未提供元数据的旧用例保持兼容。
+- **检查点（可选，推荐）**：`checkpoints` 是数组，每项 `{name, status, expected?, actual?}`，`status` 为 `passed` / `failed` / `not_run`。用例内部检查多个结果时使用；未提供时，用例本身算 1 个检查点，`db_verification.checks` 的每一项再算 1 个。报告与 8080 会统计总检查点、已测试、通过、未通过、未测试数。
 - 前端 `frontend-cases.json` 由流程在完成页面操作与数据库校验后写入；接口 / CLI 测试同理。
 
 ## 3. 生成、发布与归档
@@ -202,6 +210,37 @@ round-status finish --id=<轮次> --summary=/tmp/my-round/summary.json \
     "compliant": true,
     "violations": []
   },
+  "design_check": {
+    "compliant": true,
+    "total_cases": 193,
+    "metadata_cases": 120,
+    "operation_steps_cases": 120,
+    "method_counts": {"场景检查": 40, "边界值": 30},
+    "case_kind_counts": {"positive": 70, "negative": 50, "unlabeled": 0},
+    "units": [],
+    "units_without_positive": [],
+    "modules": [
+      {"system": "项目管理系统", "module": "项目", "total": 24, "passed": 23, "failed": 1, "not_run": 0}
+    ],
+    "unclassified_cases": 73,
+    "violations": []
+  },
+  "checkpoints": {
+    "total": 399,
+    "tested": 399,
+    "passed": 393,
+    "failed": 6,
+    "not_tested": 0,
+    "pass_rate": 98.50,
+    "explicit_cases": 0,
+    "derived_cases": 231,
+    "by_layer": {
+      "frontend": {"name": "前端", "total": 90, "tested": 90, "passed": 87, "failed": 3, "not_tested": 0},
+      "api": {"name": "接口", "total": 290, "tested": 290, "passed": 288, "failed": 2, "not_tested": 0},
+      "cli": {"name": "CLI", "total": 19, "tested": 19, "passed": 18, "failed": 1, "not_tested": 0}
+    },
+    "violations": []
+  },
   "next_round_suggestions": {
     "php": ["controller/foo.php: 未覆盖行 ……"],
     "js": ["public/assets/app.js: 未覆盖行 ……"]
@@ -220,6 +259,8 @@ round-status finish --id=<轮次> --summary=/tmp/my-round/summary.json \
 - `totals.total` 是三层用例总数；未执行用例计入总数，所以通过率 = `passed / total`。
 - `layers` 的三层都要有 `name`、`available`、`passed`、`total`、`cases`；`cases` 内每条要有 `layer`、`name`、`status`。缺失层由报告补一条 `synthetic` 的 1 条未执行用例。
 - `page_first` 与 `data_check` 的 `violations` 是未达标的用例清单；`compliant` 为 false 时，严格模式会让报告失败。
+- `design_check` 记录设计元数据审计结果；`modules` 是有系统 / 模块分类的用例分布，`unclassified_cases` 是未填写两级分类的用例数。
+- `checkpoints` 记录检查点统计：`total` 为总数，`tested` 为已执行，`failed` 为未通过，`not_tested = total - tested`；`explicit_cases` / `derived_cases` 分别表示显式提供 `checkpoints` 与按落库检查 / 用例结果推导的用例数。
 - `coverage_scope` 说明覆盖率不是按测试层切开：PHP 含页面 / API / CLI / 队列，JS 含本轮全部页面流程。
 - `next_round_suggestions` 由未覆盖行文本生成，`coverage-trend --plan` 用它写下一轮计划。
 - `issues` 是 `cases` 中非 `passed` 项的汇总；问题本身就是失败用例，不另设“已知问题”区。
@@ -245,9 +286,15 @@ round-status finish --id=<轮次> --summary=/tmp/my-round/summary.json \
 
 **轮次从编写用例阶段就存在**：执行 `round-status start` 后，即使还没跑任何测试，8080 也会出现「编写用例中」的卡片；执行 `run-all` 后状态、分层计数、覆盖率和当前步骤持续更新，直到 `done` / `failed`。不需要等报告生成完才看到记录。
 
-打开「用例」时按 `前端 / 接口 / CLI` 分组展示：每条用例显示操作步骤，有设计元数据的显示编号 / 设计方法 / 测试单元 / 测试点；失败或未执行项显示期望 / 实际；接口 / CLI 用例显示 `via_page` 或不可达原因；写数据用例显示「落库已校验 / 未校验」，设计元数据异常单独提示。旧运行目录没有 `summary.json` 时，回退为 `meta.json` 的前端步骤与前端覆盖率，不显示全量用例按钮。
+**轮次卡片的信息分组**：第一行是轮次标识、状态、名称与时间；第二行是结果指标（用例通过率、检查点总数 / 已测试 / 未通过、PHP / JS 覆盖率与增量）；第三行是审计结论与前端 / 接口 / CLI 分层计数。失败原因、覆盖口径、流程文件与运行目录等排查信息默认收进「失败摘要」折叠或 info 说明图标，点击后展开；信息位置与所属区块保持不变。
 
-**统计口径**：卡片上的「前端用例 134/137」「接口用例 50/52」等分层计数，分子是通过的**用例数**、分母是本层用例总数；一条用例内部的多条断言 / 检查点不单独计数，也不进入通过率分母。一条 `runCase` / 一个结果对象就是一条用例。
+打开「用例」时展示**系统 / 模块浏览器**：左侧是一级系统与二级模块树（显示通过数 / 总数、失败数，可折叠、可点击筛选），右侧是当前系统或模块的用例列表；选中一级系统会聚合其下所有模块，选中「全部用例」则显示整轮。每条用例显示所属系统 / 模块、层、操作步骤，有设计元数据的显示编号 / 设计方法 / 测试单元 / 测试点；失败或未执行项显示期望 / 实际；接口 / CLI 用例显示 `via_page` 或不可达原因；写数据用例显示「落库已校验 / 未校验」，设计元数据异常单独提示。未填写系统 / 模块的用例归入「未归类 / 未分模块」。旧运行目录没有 `summary.json` 时，回退为 `meta.json` 的前端步骤与前端覆盖率，不显示全量用例按钮。
+
+**检查点统计**：轮次卡片、展开后的面板 head 与模块浏览器右侧都会显示「检查点 总 X · 已测试 Y · 未通过 Z · 未测试 W」。用例提供 `checkpoints` 时以其为准；否则用例本身算 1 个检查点，`db_verification.checks` 的每一项再算 1 个。全量报告中有独立「检查点统计」区，失败清单也会显示每个失败用例未通过的检查点。
+
+**全量报告中的用例明细**：`index.html` 的「用例明细」区与 8080 使用同一套 `system / module` 分类，左侧为系统 / 模块树、右侧为用例列表，支持点击一级系统聚合、点击二级模块筛选；每条用例显示状态、检查点、操作步骤、期望 / 实际、设计元数据与落库校验结果。报告是静态文件，筛选交互由内联脚本完成，不依赖 8080 服务。
+
+**统计口径**：卡片上的「前端用例 134/137」「接口用例 50/52」等分层计数，分子是通过的**用例数**、分母是本层用例总数；一条用例内部的多条断言 / 检查点单独统计在 `checkpoints`，不进入用例通过率分母。一条 `runCase` / 一个结果对象就是一条用例。
 
 ## 6. 通用测试平台与项目测试
 

@@ -264,20 +264,28 @@ HARNESS_COVERAGE=0 php /var/www/test_usecase/fixtures/db_check.php \
 ```json
 {
   "case_id": "PMS-项目-014",
+  "system": "项目管理系统",
+  "module": "项目",
   "design_method": "边界值",
   "test_unit": "项目名称输入框",
   "test_point": "边界值-名称 128 字符可保存、129 字符被拒绝",
   "case_kind": "negative",
-  "operation_steps": "1、打开新建项目弹窗；2、输入 129 个字符的名称；3、点击创建；4、查询 project 表确认未新增"
+  "operation_steps": "1、打开新建项目弹窗；2、输入 129 个字符的名称；3、点击创建；4、查询 project 表确认未新增",
+  "checkpoints": [
+    {"name": "提示名称过长", "status": "passed"},
+    {"name": "project 表未新增记录", "status": "failed", "expected": "0 行", "actual": "1 行"}
+  ]
 }
 ```
 
+- `system` / `module` 是**一二级分类**：一级写业务系统或一级模块，二级写该系统下的具体模块。8080 打开用例列表时按这棵树生成左侧模块栏，右侧只显示选中的模块用例；未填写归入「未归类 / 未分模块」。
 - `case_id` 全局唯一；`design_method` 必须取自任务给定的方法列表（与 `coverage/case-design.js` 一致）。
 - `test_point` 命名固定为「设计方法-设计内容」，例如「状态迁移-已完成的工单不能再次提交」。
 - `test_unit` 相同的用例应同时包含正向与负向；只写负向时报告会给出补正向提示。
-- 提供 `design_method` 时必须同时提供 `test_unit`、`test_point` 与 `operation_steps`；缺少任一字段会被报告判为元数据错误（`DESIGN_STRICT=1` 时本轮失败）。
+- 提供 `design_method` 时必须同时提供 `system`、`module`、`test_unit`、`test_point` 与 `operation_steps`；缺少任一字段会被报告判为元数据错误（`DESIGN_STRICT=1` 时本轮失败）。
 - `operation_steps` 写用户 / 调用方的实际操作顺序（中文分号或编号），不是代码实现说明；报告失败清单与 8080 用例明细会直接展示这段文本。
-- 未提供设计元数据的旧用例保持兼容，不计入元数据违规；新增用例应尽量补齐，便于检查测试单元是否遗漏正向路径。
+- `checkpoints` 记录用例内部的多个检查点，`status` 只允许 `passed` / `failed` / `not_run`。计划了但未执行到的检查点写 `not_run`，计入总数但不计入已测试数。未提供 `checkpoints` 时，用例本身算 1 个检查点，`db_verification.checks` 每一项再算 1 个。
+- 未提供设计元数据的旧用例保持兼容，不计入元数据违规；新增用例应尽量补齐，便于检查测试单元是否遗漏正向路径与模块分布。
 
 ## 11. 安全与隔离
 
@@ -307,8 +315,10 @@ HARNESS_COVERAGE=0 php /var/www/test_usecase/fixtures/db_check.php \
 - [ ] 删除 / 回滚 / 查询是否在隔离环境，是否有清理？
 - [ ] 失败用例是否记录期望与实际，是否计入通过率？
 - [ ] 新用例是否确定了最小测试单元，并先写正向、再写边界与负向？
-- [ ] 设计元数据是否填写完整：`case_id`、`design_method`、`test_unit`、`test_point`、`case_kind`、`operation_steps`？
+- [ ] 设计元数据是否填写完整：`case_id`、`system`、`module`、`design_method`、`test_unit`、`test_point`、`case_kind`、`operation_steps`？
+- [ ] `system` / `module` 是否按一二级模块归类，能在 8080 左侧模块树中找到？
 - [ ] `test_point` 是否以「设计方法-」开头，且与方法、测试单元一致？
 - [ ] 每个测试单元是否至少有一条正向用例，没有被负向用例完全覆盖？
 - [ ] `operation_steps` 是否写清了用户 / 调用方的实际操作顺序，而不是代码实现？
+- [ ] 一个用例内的多个断言 / 落库检查是否用 `checkpoints` 逐个记录，未执行到的检查点是否标为 `not_run`？
 - [ ] 是否根据上一轮未覆盖行和 `coverage-trend` 生成并执行了下一轮补测？

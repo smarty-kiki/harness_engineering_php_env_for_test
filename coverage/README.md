@@ -52,7 +52,9 @@ round-status finish --id=<轮次> --summary=<summary.json> --report-dir=<round_d
 1. **页面优先**：同一行为先写页面用例；接口 / CLI 只补页面不可达或难以稳定触发的分支。接口 / CLI 用例要么写 `via_page`（对应页面用例名），要么写 `unreachable_reason`（页面不可达原因）。
 2. **写数据必查库**：凡会写数据的用例（新增、修改、删除、状态流转，以及应被拒绝的写入请求），标记 `mutates_data: true`，并在 `db_verification` 记录数据库中的实际结果。仅页面提示或接口返回成功不算通过；被拒绝的请求要确认数据库没有多出数据。
 
-第三条是**可选的用例设计元数据**（推荐新用例填写）：`case_id`、`design_method`、`test_unit`、`test_point`、`case_kind`、`operation_steps`。`case-design.js` 校验设计方法是否合法、`test_point` 是否以「设计方法-」开头、提供 `design_method` 时是否带齐测试单元与操作步骤、`case_id` 是否重复，并统计设计方法分布、各测试单元的正向 / 负向用例。未填写元数据的旧用例保持兼容，不参与强校验。
+第三条是**可选的用例设计元数据**（推荐新用例填写）：`case_id`、`system`、`module`、`design_method`、`test_unit`、`test_point`、`case_kind`、`operation_steps`。`system` / `module` 是一二级分类，8080 的用例列表按它生成左侧系统 / 模块树、右侧用例列表。`case-design.js` 校验设计方法是否合法、`test_point` 是否以「设计方法-」开头、提供 `design_method` 时是否带齐系统 / 模块 / 测试单元 / 操作步骤、`case_id` 是否重复，并统计设计方法分布、各测试单元的正向 / 负向用例、系统 / 模块分布。未填写元数据的旧用例保持兼容，不参与强校验。
+
+用例还可以用 `checkpoints` 记录内部多个检查点（页面提示、接口字段、落库结果等）。报告统计总检查点、已测试、通过、未通过、未测试；未提供时用例本身算 1 个检查点，`db_verification.checks` 每一项再算 1 个。它们与用例通过率分开统计，不改变用例分母。
 
 字段与报告契约见 `round-report.md`。`run-all.sh` 默认开启三项审计（`AUDIT_STRICT=1`），未通过会让本轮失败；单独跑 `round-report` 时用 `--strict-page-first` / `--strict-data-check` / `--strict-design`，或设置 `PAGE_FIRST_STRICT=1` / `DATA_CHECK_STRICT=1` / `DESIGN_STRICT=1`。只想迁移旧用例、暂不补设计元数据时，可单独设 `DESIGN_STRICT=0`。
 
@@ -70,7 +72,7 @@ HARNESS_COVERAGE=0 php /var/www/test_usecase/fixtures/db_check.php \
 1. 写用例前执行 `round-status start`（带上 `--suite-dir`），轮次立即出现在 8080；有上一轮计划就传 `--plan`。
 2. 按真实入口写用例：页面用 Playwright，接口用 curl / Node，命令用 bash；**先页面穿透，再补页面不可达分支**。写数据的用例同步写落库校验。
 3. 执行 `/var/www/test_usecase/run-all.sh`。它复用当前 active 轮次，按准备 → 造数 → 前端 → 接口 → CLI → 覆盖率 → 报告推进状态，结束时归档到轮次注册目录。
-4. 看本轮报告：全量通过率、页面穿透审计、落库校验、PHP / JS 整轮覆盖率、未覆盖行。执行 `coverage-trend` 查看相对上一轮的增量。
+4. 看本轮报告：全量通过率、用例检查点统计（总 / 已测试 / 未通过）、系统 / 模块分布、页面穿透审计、落库校验、PHP / JS 整轮覆盖率、未覆盖行。执行 `coverage-trend` 查看相对上一轮的增量。
 5. 依据未覆盖行生成下一轮计划，补页面流程优先；重复直到覆盖率停滞（默认连续 2 轮 PHP 业务口径与 JS 增量都小于 0.5 个百分点），或未覆盖行已没有可通过现有入口触达的代码。
 
 ```bash

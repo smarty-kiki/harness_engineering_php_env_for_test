@@ -173,6 +173,7 @@ function normalizeStatus(status) {
     page_first: null,
     data_check: null,
     design_check: null,
+    checkpoints: null,
     totals: null,
     summary_path: '',
     report_url: '',
@@ -294,7 +295,7 @@ function applyPatch(status, patch = {}) {
       continue;
     }
 
-    if (['coverage', 'coverage_scope', 'page_first', 'totals'].includes(key) && value && typeof value === 'object') {
+    if (['coverage', 'coverage_scope', 'page_first', 'totals', 'checkpoints', 'design_check', 'data_check'].includes(key) && value && typeof value === 'object') {
       next[key] = Object.assign({}, next[key] || {}, value);
       continue;
     }
@@ -362,6 +363,7 @@ function finishRound(roundId, options = {}) {
     patch.page_first = summary.page_first || null;
     patch.data_check = summary.data_check || null;
     patch.design_check = summary.design_check || null;
+    patch.checkpoints = summary.checkpoints || null;
     patch.coverage_scope = summary.coverage_scope || { php: 'round', js: 'round' };
     patch.coverage_delta = summary.coverage_delta || null;
     patch.next_round_suggestions = summary.next_round_suggestions || null;

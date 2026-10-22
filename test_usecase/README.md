@@ -103,7 +103,8 @@ coverage-trend --plan /var/www/test_usecase/reports/rounds/<轮次>/next-round-p
 - **数据落库校验**：凡会写数据的用例（新增、修改、删除、状态流转，以及应被拒绝的写入请求）标记 `mutates_data: true`，并提供非空 `db_verification`。可以写说明字符串、检查项数组，或 `{ checks: [...], detail, actual, passed }` 对象。
 - 校验要发生在页面 / 接口操作之后，直接查询数据库确认字段值、行数和软删除状态；**不能只看页面提示或接口返回成功**。被拒绝的写入要确认数据库没有新增或改动。
 - 页面流程、接口测试、CLI 测试都使用同一约定；`fixtures/db_check.php` 是通用查询工具。
-- **设计元数据（可选，推荐）**：`case_id`（全局唯一）、`design_method`（设计方法）、`test_unit`（最小测试单元）、`test_point`（必须以「设计方法-」开头）、`case_kind`（`positive` / `negative`）、`operation_steps`（操作步骤文本，报告与 8080 都会展示）。提供 `design_method` 时必须同时提供 `test_unit`、`test_point` 与 `operation_steps`；同一测试单元建议先有正向用例再补负向。
+- **设计元数据（可选，推荐）**：`case_id`（全局唯一）、`system`（一级系统 / 模块）、`module`（二级模块）、`design_method`（设计方法）、`test_unit`（最小测试单元）、`test_point`（必须以「设计方法-」开头）、`case_kind`（`positive` / `negative`）、`operation_steps`（操作步骤文本，报告与 8080 都会展示）。提供 `design_method` 时必须同时提供 `system`、`module`、`test_unit`、`test_point` 与 `operation_steps`；同一测试单元建议先有正向用例再补负向。8080 的用例列表按 `system / module` 生成左侧模块树、右侧用例列表，未填写归入「未归类 / 未分模块」。
+- **检查点（可选，推荐）**：用例结果可带 `checkpoints: [{name, status, expected?, actual?}]`，`status` 为 `passed` / `failed` / `not_run`。报告统计总检查点、已测试、通过、未通过、未测试；未提供时用例本身算 1 个检查点，`db_verification.checks` 每一项再算 1 个。
 
 三项审计在 `run-all.sh` 中默认严格（`AUDIT_STRICT=1`）；迁移旧用例时可设 `AUDIT_STRICT=0`，或用 `PAGE_FIRST_STRICT=1` / `DATA_CHECK_STRICT=1` / `DESIGN_STRICT=1` 单独控制。
 

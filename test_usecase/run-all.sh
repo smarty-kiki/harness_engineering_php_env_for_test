@@ -171,6 +171,39 @@ round_layer_counts() {
     round_update --layer "$name" --layer-state "$layer_state" --total "${1:-0}" --passed "${2:-0}" --failed "${3:-0}" --not-run "${4:-0}"
 }
 
+# 三层用例都写完后，按同一口径（显式 checkpoints / 落库检查 / 用例结果）汇总检查点，
+# 让 8080 在报告生成前就能显示总数、已测试与未通过数。
+round_checkpoint_counts() {
+    local counts
+    counts=$(node -e '
+        const fs = require("fs");
+        const path = require("path");
+
+        let checkpointAudit;
+        try {
+            checkpointAudit = require("/usr/local/share/harness/coverage/checkpoints.js").checkpointAudit;
+        } catch {
+            process.exit(0);
+        }
+
+        const read = (name) => {
+            try { return JSON.parse(fs.readFileSync(path.join(process.argv[1], name), "utf8")); } catch { return null; }
+        };
+        const audit = checkpointAudit({
+            frontend: read("frontend-cases.json"),
+            api: read("api-results.json"),
+            cli: read("cli-results.json"),
+        });
+
+        process.stdout.write([audit.total, audit.tested, audit.passed, audit.failed, audit.not_tested].join(" "));
+    ' "$ROUND_DIR" 2>/dev/null || true)
+
+    [ -n "$counts" ] || return 0
+
+    set -- $counts
+    round_update --checkpoint-total "${1:-0}" --checkpoint-tested "${2:-0}" --checkpoint-passed "${3:-0}" --checkpoint-failed "${4:-0}" --checkpoint-not-tested "${5:-0}"
+}
+
 finalize() {
     if [ "$ROUND_ENABLED" = "1" ] && [ "$ROUND_FINALIZED" = "0" ] && [ -n "$ROUND_STATE_ID" ]; then
         round_cmd finish --id "$ROUND_STATE_ID" --failed --message "本轮执行中断" >/dev/null 2>&1 || true
@@ -295,6 +328,8 @@ else
     round_update --layer cli --layer-state skipped
 fi
 
+round_checkpoint_counts
+
 echo "== 覆盖率报告 =="
 round_update --state coverage --message "统计本轮覆盖率"
 
@@ -405,6 +440,9 @@ if (summary.page_first) {
 }
 if (summary.design_check) {
     console.log(`设计元数据：带元数据 ${summary.design_check.metadata_cases}/${summary.design_check.total_cases}，操作步骤 ${summary.design_check.operation_steps_cases}，元数据错误 ${summary.design_check.violations.length}`);
+}
+if (summary.checkpoints) {
+    console.log(`检查点：总 ${summary.checkpoints.total}，已测试 ${summary.checkpoints.tested}，通过 ${summary.checkpoints.passed}，未通过 ${summary.checkpoints.failed}，未测试 ${summary.checkpoints.not_tested}`);
 }
 console.log(`轮次报告：http://127.0.0.1:8080/rounds/${summary.round_id}/report/index.html`);
 NODE

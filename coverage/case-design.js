@@ -3,13 +3,16 @@
  *
  * 用例结果文件里的可选字段：
  *   case_id          全局唯一，推荐「系统-模块-序号」
+ *   system           一级分类：业务系统 / 一级模块
+ *   module           二级分类：系统下的具体模块
  *   design_method    设计方法，必须来自 DESIGN_METHODS
  *   test_unit        最小测试单元（输入框 / 按钮 / 业务逻辑 / 前置入口等）
  *   test_point       测试点，命名为「设计方法-设计内容」
  *   case_kind        positive / negative，用于检查测试单元是否有正向用例
  *   operation_steps  操作步骤，中文分号分隔
  *
- * 只有提供 design_method 的用例才会进入强校验；未提供设计元数据的旧用例保持兼容。
+ * 只有提供任意设计元数据的用例才进入校验；未提供元数据的旧用例保持兼容。
+ * 提供 design_method 时，必须同时提供 system、module、test_unit、test_point 与 operation_steps。
  * 校验只检查“已提供的元数据是否自洽”，不要求所有项目一次性补齐。
  */
 
@@ -35,7 +38,15 @@ function text(value) {
 }
 
 function hasAnyDesignField(item) {
-  return !!(text(item.case_id) || text(item.design_method) || text(item.test_unit) || text(item.test_point) || text(item.case_kind));
+  return !!(
+    text(item.case_id)
+    || text(item.system)
+    || text(item.module)
+    || text(item.design_method)
+    || text(item.test_unit)
+    || text(item.test_point)
+    || text(item.case_kind)
+  );
 }
 
 /**
@@ -60,12 +71,16 @@ function designAudit(layers) {
   const methodCounts = {};
   const kindCounts = { positive: 0, negative: 0, unlabeled: 0 };
   const units = new Map();
+  const modules = new Map();
   let metadataCases = 0;
   let operationStepsCases = 0;
+  let unclassifiedCases = 0;
 
   for (const { layer, item } of allCases) {
     const name = text(item.name) || '(未命名用例)';
     const caseId = text(item.case_id);
+    const system = text(item.system);
+    const module = text(item.module);
     const designMethod = text(item.design_method);
     const testUnit = text(item.test_unit);
     const testPoint = text(item.test_point);
@@ -73,6 +88,23 @@ function designAudit(layers) {
     const operationSteps = text(item.operation_steps);
 
     if (operationSteps !== '') operationStepsCases++;
+
+    if (system !== '' && module !== '') {
+      const key = system + '|' + module;
+      const status = text(item.status) || 'not_run';
+
+      if (!modules.has(key)) {
+        modules.set(key, { system, module, total: 0, passed: 0, failed: 0, not_run: 0 });
+      }
+
+      const entry = modules.get(key);
+      entry.total++;
+      if (status === 'passed') entry.passed++;
+      else if (status === 'failed') entry.failed++;
+      else entry.not_run++;
+    } else {
+      unclassifiedCases++;
+    }
 
     if (!hasAnyDesignField(item)) {
       continue;
@@ -86,6 +118,16 @@ function designAudit(layers) {
       } else {
         caseIds.set(caseId, name);
       }
+    }
+
+    if (system === '') {
+      if (module !== '') {
+        violations.push({ layer, name, reason: '提供 module 时缺少 system' });
+      } else if (designMethod !== '') {
+        violations.push({ layer, name, reason: '提供 design_method 时缺少 system 与 module' });
+      }
+    } else if (module === '' && designMethod !== '') {
+      violations.push({ layer, name, reason: '提供 design_method 时缺少 module' });
     }
 
     if (designMethod !== '') {
@@ -139,6 +181,8 @@ function designAudit(layers) {
   const unitsWithoutPositive = unitRows
     .filter((unit) => unit.total > 0 && (unit.positive > 0 || unit.negative > 0) && unit.positive === 0)
     .map((unit) => ({ layer: unit.layer, test_unit: unit.test_unit, total: unit.total, positive: unit.positive, negative: unit.negative }));
+  const moduleRows = Array.from(modules.values()).sort((a, b) =>
+    a.system.localeCompare(b.system, 'zh-CN') || a.module.localeCompare(b.module, 'zh-CN'));
 
   return {
     compliant: violations.length === 0,
@@ -149,6 +193,8 @@ function designAudit(layers) {
     case_kind_counts: kindCounts,
     units: unitRows,
     units_without_positive: unitsWithoutPositive,
+    modules: moduleRows,
+    unclassified_cases: unclassifiedCases,
     violations,
   };
 }

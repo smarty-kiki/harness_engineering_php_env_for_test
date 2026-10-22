@@ -47,9 +47,13 @@
 
     body {
         margin: 0;
-        background: var(--bg);
+        min-height: 100vh;
+        background:
+            radial-gradient(1100px 420px at 50% -8%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%),
+            var(--bg);
         color: var(--text);
         font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "PingFang SC", sans-serif;
+        -webkit-font-smoothing: antialiased;
     }
 
     .wrap {
@@ -61,27 +65,47 @@
     header { margin-bottom: 24px; }
 
     header h1 {
+        display: flex;
+        align-items: center;
+        gap: 10px;
         margin: 0;
         font-size: 24px;
+        font-weight: 700;
         letter-spacing: .2px;
     }
 
+    header h1::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+        background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 45%, var(--ok)));
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 10%, transparent);
+    }
+
     header p {
-        margin: 4px 0 0;
+        margin: 6px 0 0 20px;
         color: var(--muted);
         font-size: 13px;
     }
 
     .section-title {
         display: flex;
-        align-items: baseline;
-        gap: 10px;
+        align-items: center;
+        gap: 8px;
         margin: 26px 0 10px;
-        font-size: 13px;
+        font-size: 12.5px;
         font-weight: 600;
         color: var(--muted);
         text-transform: uppercase;
-        letter-spacing: .08em;
+        letter-spacing: .1em;
+    }
+
+    .section-title::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, var(--border), transparent);
     }
 
     .live-row {
@@ -90,22 +114,30 @@
         gap: 14px;
         padding: 14px 16px;
         border: 1px solid var(--border);
-        border-radius: 12px;
-        background: var(--panel);
+        border-radius: 14px;
+        background:
+            linear-gradient(135deg, color-mix(in srgb, var(--accent) 5%, var(--panel)), var(--panel) 55%);
         box-shadow: var(--shadow);
+        transition: border-color .18s ease, box-shadow .18s ease;
+    }
+
+    .live-row:hover {
+        border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+        box-shadow: 0 8px 24px rgba(15, 23, 42, .07);
     }
 
     .live-icon {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 36px;
-        height: 36px;
-        flex: 0 0 36px;
-        border-radius: 10px;
-        background: var(--accent-soft);
-        color: var(--accent);
-        font-size: 18px;
+        width: 38px;
+        height: 38px;
+        flex: 0 0 38px;
+        border-radius: 11px;
+        background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #7c3aed));
+        color: #fff;
+        font-size: 17px;
+        box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 28%, transparent);
     }
 
     .live-copy { min-width: 0; }
@@ -122,6 +154,8 @@
         font-size: 12.5px;
         line-height: 1.5;
     }
+
+    .live-copy span .hint { display: inline-flex; vertical-align: middle; }
 
     .live-row .btn { margin-left: auto; }
 
@@ -141,14 +175,17 @@
         text-decoration: none;
         white-space: nowrap;
         cursor: pointer;
-        transition: border-color .12s ease, background .12s ease, color .12s ease;
+        transition: border-color .15s ease, background .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease;
     }
 
     .btn:hover {
         border-color: var(--accent);
         color: var(--accent);
         background: var(--accent-soft);
+        box-shadow: 0 3px 10px color-mix(in srgb, var(--accent) 12%, transparent);
     }
+
+    .btn:active { transform: translateY(1px); }
 
     .btn:focus-visible {
         outline: 2px solid var(--accent);
@@ -156,14 +193,16 @@
     }
 
     .btn.primary {
-        border-color: var(--accent);
-        background: var(--accent);
+        border-color: transparent;
+        background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #7c3aed));
         color: #fff;
+        box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 30%, transparent);
     }
 
     .btn.primary:hover {
-        filter: brightness(1.05);
+        filter: brightness(1.06);
         color: #fff;
+        box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 36%, transparent);
     }
 
     .runs {
@@ -173,15 +212,35 @@
     }
 
     .run {
+        position: relative;
         border: 1px solid var(--border);
-        border-radius: 12px;
+        border-radius: 14px;
         background: var(--panel);
         box-shadow: var(--shadow);
-        overflow: hidden;
+        overflow: visible;
+        transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+    }
+
+    .run:hover {
+        border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+        box-shadow: 0 8px 24px rgba(15, 23, 42, .08);
+        transform: translateY(-1px);
     }
 
     .run.active {
         border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 8%, transparent), var(--shadow);
+    }
+
+    .run.active::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 14px;
+        bottom: 14px;
+        width: 3px;
+        border-radius: 0 3px 3px 0;
+        background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 35%, transparent));
     }
 
     .run-row {
@@ -209,6 +268,73 @@
         font-weight: 600;
         word-break: break-all;
     }
+
+    .run-time { color: var(--muted); font-size: 12.5px; }
+
+    .run-metrics {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: stretch;
+        gap: 7px;
+        margin-top: 9px;
+        color: var(--muted);
+        font-size: 12px;
+    }
+
+    .run-metric {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 5px 10px;
+        min-height: 27px;
+        padding: 3px 9px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--bg) 55%, var(--panel));
+    }
+
+    .run-metric .badge { padding: 0; background: transparent; font-size: 12px; }
+    .run-metric .badge.ok { color: var(--ok); }
+    .run-metric .badge.err { color: var(--err); }
+    .run-metric-coverage { gap: 6px 12px; }
+
+    .run-status-line {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 10px;
+        margin-top: 9px;
+    }
+
+    .run-audits { display: flex; flex-wrap: wrap; gap: 6px; }
+
+    .run-status-line .layers {
+        margin-top: 0;
+        padding-left: 10px;
+        border-left: 1px solid var(--border);
+    }
+
+    .run-alert { margin-top: 7px; }
+
+    .run-alert > summary {
+        color: var(--err);
+        cursor: pointer;
+        font-size: 12.5px;
+        list-style: none;
+    }
+
+    .run-alert > summary::-webkit-details-marker { display: none; }
+
+    .run-alert > summary::before {
+        content: "▸";
+        display: inline-block;
+        margin-right: 5px;
+        font-size: 10px;
+        transition: transform .15s ease;
+    }
+
+    .run-alert[open] > summary::before { transform: rotate(90deg); }
+    .run-alert .run-error { margin-top: 4px; }
 
     .run-error {
         margin-top: 5px;
@@ -267,6 +393,59 @@
         animation: badge-pulse 1.4s ease-in-out infinite;
     }
 
+    .hint {
+        position: relative;
+        display: inline-flex;
+        flex: 0 0 auto;
+        vertical-align: middle;
+    }
+
+    .hint > summary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 17px;
+        height: 17px;
+        border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+        border-radius: 50%;
+        background: transparent;
+        color: var(--accent);
+        cursor: pointer;
+        font: 600 10.5px/1 var(--mono);
+        list-style: none;
+        opacity: .75;
+        transition: background .15s ease, opacity .15s ease;
+    }
+
+    .hint > summary::-webkit-details-marker { display: none; }
+    .hint > summary:hover,
+    .hint[open] > summary { opacity: 1; background: var(--accent-soft); }
+
+    .hint-body {
+        position: absolute;
+        z-index: 80;
+        top: calc(100% + 8px);
+        left: 50%;
+        width: min(340px, 78vw);
+        padding: 10px 12px;
+        transform: translateX(-50%);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--panel);
+        box-shadow: 0 14px 34px rgba(15, 23, 42, .16);
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 400;
+        letter-spacing: normal;
+        line-height: 1.65;
+        text-align: left;
+        text-transform: none;
+        white-space: pre-line;
+    }
+
+    .hint.right .hint-body { left: auto; right: 0; transform: none; }
+    .hint-body code { font-family: var(--mono); font-size: 11.5px; word-break: break-all; }
+
     @keyframes badge-pulse {
         0%, 100% { opacity: 1; }
         50% { opacity: .25; }
@@ -320,8 +499,15 @@
 
     .steps-panel {
         border-top: 1px dashed var(--border);
-        padding: 11px 16px 14px;
+        border-radius: 0 0 14px 14px;
+        padding: 12px 16px 16px;
         background: color-mix(in srgb, var(--bg) 55%, var(--panel));
+        animation: panel-in .18s ease both;
+    }
+
+    @keyframes panel-in {
+        from { opacity: 0; transform: translateY(-3px); }
+        to { opacity: 1; transform: translateY(0); }
     }
 
     .steps-head {
@@ -335,6 +521,7 @@
     }
 
     .steps-head strong { color: var(--text); }
+    .steps-head .hint.right { margin-left: auto; }
 
     .steps-head code {
         font-family: var(--mono);
@@ -363,6 +550,7 @@
     }
 
     .step:last-child { border-bottom: 0; }
+    .step:hover { background: color-mix(in srgb, var(--accent) 3%, transparent); }
 
     .step-icon {
         width: 16px;
@@ -385,6 +573,123 @@
     }
 
     .case-layer + .case-layer { margin-top: 10px; }
+
+    .case-browser {
+        display: grid;
+        grid-template-columns: minmax(180px, 232px) minmax(0, 1fr);
+        gap: 12px;
+        margin-top: 10px;
+    }
+
+    .case-modules {
+        min-width: 0;
+        max-height: 560px;
+        overflow: auto;
+        padding: 8px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background:
+            linear-gradient(180deg, color-mix(in srgb, var(--accent) 3%, var(--panel)), var(--panel) 42%);
+        scrollbar-width: thin;
+        scrollbar-color: color-mix(in srgb, var(--muted) 35%, transparent) transparent;
+    }
+
+    .case-modules::-webkit-scrollbar,
+    .steps-list::-webkit-scrollbar { width: 8px; height: 8px; }
+
+    .case-modules::-webkit-scrollbar-thumb,
+    .steps-list::-webkit-scrollbar-thumb {
+        border: 2px solid transparent;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--muted) 30%, transparent) padding-box;
+    }
+
+    .case-modules-title {
+        margin: 2px 4px 6px;
+        color: var(--muted);
+        font-size: 11.5px;
+        font-weight: 600;
+        letter-spacing: .04em;
+    }
+
+    .case-system-row { display: flex; align-items: stretch; gap: 2px; }
+
+    .case-caret {
+        flex: 0 0 22px;
+        width: 22px;
+        padding: 0;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        font: inherit;
+        font-size: 11px;
+    }
+
+    .case-caret:hover { background: var(--bg); color: var(--text); }
+
+    .case-module-item {
+        display: flex;
+        flex: 1;
+        min-width: 0;
+        align-items: center;
+        gap: 6px;
+        width: 100%;
+        padding: 5px 8px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--text);
+        cursor: pointer;
+        font: inherit;
+        font-size: 12.5px;
+        text-align: left;
+    }
+
+    .case-module-item:hover { background: var(--bg); }
+
+    .case-module-item.active {
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-weight: 600;
+    }
+
+    .case-module-item.sub { padding-left: 26px; font-size: 12px; }
+
+    .case-module-name {
+        min-width: 0;
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .case-module-count { color: var(--muted); font-family: var(--mono); font-size: 11px; white-space: nowrap; }
+    .case-module-failed { color: var(--err); font-style: normal; font-size: 10.5px; white-space: nowrap; }
+
+    .case-results { min-width: 0; }
+
+    .case-results-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 4px 12px;
+        min-height: 24px;
+        margin-bottom: 6px;
+        color: var(--muted);
+        font-size: 12px;
+    }
+
+    .case-results-head strong { color: var(--text); font-size: 13px; }
+
+    .case-results .steps-list { max-height: 560px; }
+
+    @media (max-width: 760px) {
+        .case-browser { grid-template-columns: 1fr; }
+        .case-modules { max-height: 220px; }
+        .case-results .steps-list { max-height: none; }
+    }
 
     .case-layer-title {
         margin: 8px 0 4px;
@@ -425,6 +730,50 @@
 
     .run-issues .ok-text { color: var(--ok); }
 
+    .run-issues .hint { margin-left: 2px; font-weight: 400; }
+
+    .run-issues > summary {
+        cursor: pointer;
+        list-style: none;
+        color: var(--muted);
+    }
+
+    .run-issues > summary::-webkit-details-marker { display: none; }
+
+    .run-issues > summary::before {
+        content: "▸";
+        display: inline-block;
+        margin-right: 5px;
+        font-size: 10px;
+        transition: transform .15s ease;
+    }
+
+    .run-issues[open] > summary::before { transform: rotate(90deg); }
+    .run-issues > summary strong { color: var(--text); }
+
+    .audit-more { margin-top: 5px; }
+
+    .audit-more > summary {
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 12px;
+        list-style: none;
+    }
+
+    .audit-more > summary::-webkit-details-marker { display: none; }
+
+    .audit-more > summary::before {
+        content: "▸";
+        display: inline-block;
+        margin-right: 5px;
+        font-size: 10px;
+        transition: transform .15s ease;
+    }
+
+    .audit-more[open] > summary::before { transform: rotate(90deg); }
+    .audit-more[open] > summary { color: var(--text); }
+    .audit-more ul { margin: 4px 0 0; padding-left: 18px; color: var(--err); font-size: 12px; line-height: 1.6; }
+
     .empty {
         padding: 28px 16px;
         border: 1px dashed var(--border);
@@ -462,7 +811,12 @@
         <span class="live-icon">◉</span>
         <div class="live-copy">
             <strong>只读实时画面</strong>
-            <span>有头运行 playwright-run 时可直接观察浏览器操作，不可远程接管；无头运行不会显示画面。</span>
+            <span>最近一次有头运行的浏览器画面
+                <details class="hint">
+                    <summary title="说明" aria-label="说明">i</summary>
+                    <div class="hint-body">有头运行 playwright-run 时可直接观察浏览器操作，不可远程接管；无头运行不会显示画面。</div>
+                </details>
+            </span>
         </div>
         <a class="btn primary" href="/vnc/vnc.html?autoconnect=true&resize=scale&view_only=true">打开实时画面</a>
     </div>
@@ -480,6 +834,8 @@
     var runsBox = document.getElementById('runs');
     var items = [];
     var expanded = {};
+    var moduleSelections = {};
+    var collapsedSystems = {};
     var signature = '';
     var loading = false;
     var timer = null;
@@ -639,11 +995,11 @@
         var badges = [];
 
         if (coverage.php_business) {
-            badges.push('<span>PHP ' + esc(pctText(coverage.php_business.percent)) + '</span>');
+            badges.push('<span title="本轮全部页面 / API / CLI / 队列执行的 PHP 业务口径行覆盖率">PHP ' + esc(pctText(coverage.php_business.percent)) + '</span>');
         }
 
         if (coverage.js) {
-            badges.push('<span>JS ' + esc(pctText(coverage.js.percent)) + '</span>');
+            badges.push('<span title="本轮全部 Playwright 页面流程合并后的 JS 行覆盖率">JS ' + esc(pctText(coverage.js.percent)) + '</span>');
         }
 
         var delta = status.coverage_delta;
@@ -666,23 +1022,23 @@
 
         if (pageFirst) {
             badges.push(pageFirst.unclassified > 0
-                ? '<span class="badge warn">页面穿透未分类 ' + pageFirst.unclassified + '</span>'
-                : '<span class="badge ok">页面穿透通过</span>');
+                ? '<span class="badge warn" title="接口 / CLI 用例未写 via_page 或 unreachable_reason">页面穿透未分类 ' + pageFirst.unclassified + '</span>'
+                : '<span class="badge ok" title="接口 / CLI 用例都已关联页面用例或说明页面不可达原因">页面穿透通过</span>');
         }
 
         var dataCheck = status.data_check;
         if (dataCheck) {
             badges.push(dataCheck.unverified > 0
-                ? '<span class="badge warn">落库未校验 ' + dataCheck.unverified + '</span>'
-                : '<span class="badge ok">落库校验通过</span>');
+                ? '<span class="badge warn" title="写数据用例缺少 db_verification 落库校验">落库未校验 ' + dataCheck.unverified + '</span>'
+                : '<span class="badge ok" title="全部写数据用例都记录了数据库落库校验">落库校验通过</span>');
         }
 
         var designCheck = status.design_check;
         if (designCheck) {
             if (designCheck.violations && designCheck.violations.length) {
-                badges.push('<span class="badge warn">设计元数据异常 ' + designCheck.violations.length + '</span>');
+                badges.push('<span class="badge warn" title="设计方法 / 测试点 / 系统模块 / 操作步骤等元数据不自洽">设计元数据异常 ' + designCheck.violations.length + '</span>');
             } else if (designCheck.metadata_cases > 0) {
-                badges.push('<span class="badge ok">设计元数据通过</span>');
+                badges.push('<span class="badge ok" title="已提供的设计元数据自洽">设计元数据通过</span>');
             }
         }
 
@@ -693,8 +1049,23 @@
         var totals = totalsOf(status);
         if (!totals) { return ''; }
         var label = isActiveRound(status) ? '当前通过率' : '全量通过率';
-        return '<span class="badge ' + (totals.failed || totals.not_run ? 'err' : 'ok') + '">' + label + ' '
+        return '<span class="badge ' + (totals.failed || totals.not_run ? 'err' : 'ok') + '" title="通过用例数 / 全部用例数；未执行用例也计入分母">' + label + ' '
             + pctText(totals.pass_rate) + '（' + totals.passed + '/' + totals.total + '）</span>';
+    }
+
+    function checkpointBadge(status) {
+        var checkpoints = status && status.checkpoints;
+
+        if (!checkpoints || !numberValue(checkpoints.total)) { return ''; }
+
+        return '<span class="badge ' + (numberValue(checkpoints.failed) ? 'err' : 'ok') + '" title="检查点统计：总 '
+            + numberValue(checkpoints.total) + ' · 已测试 ' + (numberValue(checkpoints.tested) || 0)
+            + ' · 未通过 ' + (numberValue(checkpoints.failed) || 0)
+            + ' · 未测试 ' + (numberValue(checkpoints.not_tested) || 0) + '">'
+            + '检查点 总 ' + numberValue(checkpoints.total)
+            + ' · 已测 ' + (numberValue(checkpoints.tested) || 0)
+            + ' · 未通过 ' + (numberValue(checkpoints.failed) || 0)
+            + '</span>';
     }
 
     function roundTimeParts(status, active) {
@@ -762,9 +1133,109 @@
         return '<a class="btn" href="' + esc(href) + '" target="_blank" rel="noopener">' + esc(label) + '</a>';
     }
 
+    function hint(text, extraClass) {
+        return '<details class="hint' + (extraClass ? ' ' + extraClass : '') + '">'
+            + '<summary title="说明" aria-label="说明">i</summary>'
+            + '<div class="hint-body">' + esc(text) + '</div>'
+            + '</details>';
+    }
+
     function caseButton(index, label, expandedNow) {
         return '<button class="btn" type="button" data-index="' + index + '" aria-expanded="' + (expandedNow ? 'true' : 'false') + '">'
             + esc(expandedNow ? '收起用例' : label) + '</button>';
+    }
+
+    function caseSystemOf(item) {
+        var value = item && item.system ? String(item.system).trim() : '';
+        return value || '未归类';
+    }
+
+    function caseModuleOf(item) {
+        var value = item && item.module ? String(item.module).trim() : '';
+        return value || '未分模块';
+    }
+
+    function caseStatsOf(cases) {
+        var stats = { total: 0, passed: 0, failed: 0, not_run: 0 };
+
+        for (var i = 0; i < cases.length; i++) {
+            stats.total++;
+            if (cases[i].status === 'passed') stats.passed++;
+            else if (cases[i].status === 'failed') stats.failed++;
+            else stats.not_run++;
+        }
+
+        return stats;
+    }
+
+    function checkpointStatsAdd(stats, status) {
+        stats.total++;
+
+        if (status === 'not_run') {
+            stats.not_run++;
+            return;
+        }
+
+        stats.tested++;
+
+        if (status === 'passed') stats.passed++;
+        else stats.failed++;
+    }
+
+    function caseCheckpointStats(item) {
+        var stats = { total: 0, tested: 0, passed: 0, failed: 0, not_run: 0 };
+        var explicit = Array.isArray(item.checkpoints) ? item.checkpoints : [];
+
+        if (explicit.length) {
+            explicit.forEach(function (checkpoint) {
+                checkpointStatsAdd(stats, checkpoint && checkpoint.status);
+            });
+            return stats;
+        }
+
+        checkpointStatsAdd(stats, item.status);
+
+        var db = item.db_verification;
+        if (db && Array.isArray(db.checks)) {
+            db.checks.forEach(function (checkpoint) {
+                var status = checkpoint && checkpoint.status;
+
+                if (!status) {
+                    status = item.status === 'not_run'
+                        ? 'not_run'
+                        : (db.passed === false ? 'failed' : 'passed');
+                }
+
+                checkpointStatsAdd(stats, status);
+            });
+        }
+
+        return stats;
+    }
+
+    function checkpointStatsOf(cases) {
+        var stats = { total: 0, tested: 0, passed: 0, failed: 0, not_run: 0 };
+
+        for (var i = 0; i < cases.length; i++) {
+            var one = caseCheckpointStats(cases[i]);
+            stats.total += one.total;
+            stats.tested += one.tested;
+            stats.passed += one.passed;
+            stats.failed += one.failed;
+            stats.not_run += one.not_run;
+        }
+
+        return stats;
+    }
+
+    function checkpointStatsText(stats) {
+        return '检查点 总 ' + stats.total + ' · 已测 ' + stats.tested
+            + ' · 未通过 ' + stats.failed + ' · 未测 ' + stats.not_run;
+    }
+
+    function layerNameOf(item) {
+        var value = item && item.layer ? String(item.layer) : '';
+        return LAYER_LABELS[value] || value || '未分层';
     }
 
     function renderCaseList(cases) {
@@ -789,6 +1260,9 @@
 
             var designNotes = [];
 
+            var context = [caseSystemOf(item) + ' / ' + caseModuleOf(item), '层：' + layerNameOf(item)];
+            notes.push('<span class="case-note">模块：' + esc(context.join(' · ')) + '</span>');
+
             if (item.case_id) { designNotes.push('编号：' + item.case_id); }
             if (item.design_method) { designNotes.push('设计方法：' + item.design_method); }
             if (item.test_unit) { designNotes.push('测试单元：' + item.test_unit); }
@@ -796,6 +1270,14 @@
 
             if (designNotes.length) {
                 notes.push('<span class="case-note">' + esc(designNotes.join(' · ')) + '</span>');
+            }
+
+            var caseCheckpoints = caseCheckpointStats(item);
+
+            if ((Array.isArray(item.checkpoints) && item.checkpoints.length) || caseCheckpoints.total > 1) {
+                notes.push('<span class="case-note">检查点：' + caseCheckpoints.passed + '/' + caseCheckpoints.total
+                    + ' 通过' + (caseCheckpoints.failed ? '，未通过 ' + caseCheckpoints.failed : '')
+                    + (caseCheckpoints.not_run ? '，未测 ' + caseCheckpoints.not_run : '') + '</span>');
             }
 
             notes.push('<span class="case-note">操作步骤：' + esc(item.operation_steps || '历史用例未记录') + '</span>');
@@ -830,12 +1312,71 @@
         return '该层没有记录用例。';
     }
 
-    function renderLayers(layers) {
+    function moduleKeyOf(system, module) {
+        return 'mod:' + encodeURIComponent(system) + '|' + encodeURIComponent(module);
+    }
+
+    function systemKeyOf(system) {
+        return 'sys:' + encodeURIComponent(system);
+    }
+
+    function buildModuleTree(cases) {
+        var index = {};
+        var groups = [];
+
+        cases.forEach(function (item) {
+            var system = caseSystemOf(item);
+            var module = caseModuleOf(item);
+
+            if (!index[system]) {
+                index[system] = { system: system, cases: [], modules: [], moduleIndex: {} };
+                groups.push(index[system]);
+            }
+
+            var group = index[system];
+            group.cases.push(item);
+
+            if (!group.moduleIndex[module]) {
+                group.moduleIndex[module] = { module: module, cases: [] };
+                group.modules.push(group.moduleIndex[module]);
+            }
+
+            group.moduleIndex[module].cases.push(item);
+        });
+
+        groups.sort(function (a, b) {
+            if (a.system === '未归类') { return 1; }
+            if (b.system === '未归类') { return -1; }
+            return a.system.localeCompare(b.system, 'zh-CN');
+        });
+
+        groups.forEach(function (group) {
+            group.modules.sort(function (a, b) {
+                if (a.module === '未分模块') { return 1; }
+                if (b.module === '未分模块') { return -1; }
+                return a.module.localeCompare(b.module, 'zh-CN');
+            });
+        });
+
+        return groups;
+    }
+
+    function renderModuleButton(key, label, stats, roundId, sub) {
+        var active = (moduleSelections[roundId] || '') === key;
+
+        return '<button type="button" class="case-module-item' + (sub ? ' sub' : '') + (active ? ' active' : '')
+            + '" data-module-key="' + esc(key) + '" data-round-id="' + esc(roundId) + '" aria-pressed="' + (active ? 'true' : 'false') + '">'
+            + '<span class="case-module-name">' + esc(label) + '</span>'
+            + '<span class="case-module-count">' + stats.passed + '/' + stats.total + '</span>'
+            + (stats.failed ? '<em class="case-module-failed">失败 ' + stats.failed + '</em>' : '')
+            + '</button>';
+    }
+
+    function renderLayerEmpty(layers) {
         var html = '';
 
         ['frontend', 'api', 'cli'].forEach(function (key) {
             var layer = (layers && layers[key]) || {};
-            var cases = Array.isArray(layer.cases) ? layer.cases : [];
             var title = esc((layer.name || LAYER_LABELS[key]) + '用例') + ' '
                 + esc(layerCountText(layer))
                 + (layer.failed ? ' · 失败 ' + numberValue(layer.failed) : '')
@@ -844,11 +1385,102 @@
 
             html += '<div class="case-layer">'
                 + '<div class="case-layer-title">' + title + '</div>'
-                + (cases.length ? renderCaseList(cases) : '<div class="run-note">' + esc(layerEmptyText(layer)) + '</div>')
+                + '<div class="run-note">' + esc(layerEmptyText(layer)) + '</div>'
                 + '</div>';
         });
 
         return html;
+    }
+
+    function renderCaseBrowser(allCases, roundId) {
+        var tree = buildModuleTree(allCases);
+        var selectionKey = moduleSelections[roundId] || '';
+        var selected = { label: '全部用例', cases: allCases };
+        var left = renderModuleButton('', '全部用例', caseStatsOf(allCases), roundId, false);
+
+        tree.forEach(function (group) {
+            var collapsed = collapsedSystems[roundId + '|' + group.system] === true;
+
+            if (selectionKey === systemKeyOf(group.system)) {
+                selected = { label: group.system, cases: group.cases };
+            }
+
+            left += '<div class="case-system-row">'
+                + '<button type="button" class="case-caret" data-module-collapse="' + esc(group.system) + '" data-round-id="' + esc(roundId) + '" aria-expanded="' + (collapsed ? 'false' : 'true') + '">'
+                + (collapsed ? '▸' : '▾') + '</button>'
+                + renderModuleButton(systemKeyOf(group.system), group.system, caseStatsOf(group.cases), roundId, false)
+                + '</div>';
+
+            if (collapsed) { return; }
+
+            group.modules.forEach(function (module) {
+                if (selectionKey === moduleKeyOf(group.system, module.module)) {
+                    selected = { label: group.system + ' / ' + module.module, cases: module.cases };
+                }
+
+                left += renderModuleButton(moduleKeyOf(group.system, module.module), module.module, caseStatsOf(module.cases), roundId, true);
+            });
+        });
+
+        var stats = caseStatsOf(selected.cases);
+        var checkpoints = checkpointStatsOf(selected.cases);
+        var layerCounts = { frontend: 0, api: 0, cli: 0 };
+
+        selected.cases.forEach(function (item) {
+            if (layerCounts[item._layerKey] !== undefined) { layerCounts[item._layerKey]++; }
+        });
+
+        var layerText = ['frontend', 'api', 'cli'].map(function (key) {
+            return LAYER_LABELS[key] + ' ' + layerCounts[key];
+        }).join(' · ');
+
+        return '<div class="case-browser">'
+            + '<aside class="case-modules"><div class="case-modules-title">系统 / 模块</div>' + left + '</aside>'
+            + '<section class="case-results">'
+            + '<div class="case-results-head">'
+            + '<strong>' + esc(selected.label) + '</strong>'
+            + '<span>' + stats.total + ' 条 · 通过 ' + stats.passed + ' · 失败 ' + stats.failed + ' · 未执行 ' + stats.not_run + '</span>'
+            + '<span>' + esc(layerText) + '</span>'
+            + '<span>' + esc(checkpointStatsText(checkpoints)) + '</span>'
+            + '</div>'
+            + (selected.cases.length
+                ? renderCaseList(selected.cases)
+                : '<div class="run-note">该模块没有记录用例。</div>')
+            + '</section>'
+            + '</div>';
+    }
+
+    function renderLayers(layers, roundId) {
+        var allCases = [];
+
+        ['frontend', 'api', 'cli'].forEach(function (key) {
+            var layer = (layers && layers[key]) || {};
+            var cases = Array.isArray(layer.cases) ? layer.cases : [];
+
+            cases.forEach(function (item) {
+                var copy = {};
+
+                Object.keys(item).forEach(function (field) { copy[field] = item[field]; });
+                if (!copy.layer) { copy.layer = LAYER_LABELS[key] || key; }
+                copy._layerKey = key;
+                allCases.push(copy);
+            });
+        });
+
+        if (!allCases.length) { return renderLayerEmpty(layers); }
+
+        return renderCaseBrowser(allCases, roundId || 'round');
+    }
+
+    function auditViolations(violations, label) {
+        if (!violations || !violations.length) { return ''; }
+
+        return '<details class="audit-more"><summary>' + esc(label) + '（' + violations.length + '）</summary>'
+            + '<ul>' + violations.slice(0, 30).map(function (item) {
+                return '<li>[' + esc(item.layer) + '] ' + esc(item.name) + ' — ' + esc(item.reason) + '</li>';
+            }).join('') + '</ul>'
+            + (violations.length > 30 ? '<div class="run-note">另有 ' + (violations.length - 30) + ' 条未展示</div>' : '')
+            + '</details>';
     }
 
     function renderAudits(status) {
@@ -857,40 +1489,26 @@
 
         if (pageFirst) {
             html += '<div class="run-issues"><strong>页面穿透审计</strong>'
+                + hint('规则：同一行为优先写页面用例。接口 / CLI 用例需要写 via_page（对应页面用例名）或 unreachable_reason（页面不可达的具体原因）。未分类用例会让严格审计失败。')
                 + ' 页面用例 ' + pageFirst.frontend_cases
                 + ' · 接口 / CLI ' + pageFirst.api_cli_cases
                 + ' · 已关联页面 ' + pageFirst.via_page
                 + ' · 不可达说明 ' + pageFirst.unreachable
-                + ' · 未分类 ' + pageFirst.unclassified;
-
-            if (pageFirst.violations && pageFirst.violations.length) {
-                html += '<ul>' + pageFirst.violations.slice(0, 30).map(function (item) {
-                    return '<li>[' + esc(item.layer) + '] ' + esc(item.name) + ' — ' + esc(item.reason) + '</li>';
-                }).join('') + '</ul>';
-            } else {
-                html += '<div class="ok-text">全部接口 / CLI 用例都已关联页面用例或说明页面不可达原因。</div>';
-            }
-
-            html += '</div>';
+                + ' · 未分类 ' + pageFirst.unclassified
+                + auditViolations(pageFirst.violations, '查看未归类用例')
+                + '</div>';
         }
 
         var dataCheck = status.data_check;
 
         if (dataCheck) {
             html += '<div class="run-issues"><strong>数据落库校验</strong>'
+                + hint('规则：凡会写数据的用例（新增、修改、删除、状态流转，以及应被拒绝的写入）都要标记 mutates_data，并通过 db_verification 记录数据库中的实际结果。页面提示或接口返回成功不算通过。')
                 + ' 写数据用例 ' + dataCheck.mutating_cases
                 + ' · 已校验 ' + dataCheck.verified
-                + ' · 未校验 ' + dataCheck.unverified;
-
-            if (dataCheck.violations && dataCheck.violations.length) {
-                html += '<ul>' + dataCheck.violations.slice(0, 30).map(function (item) {
-                    return '<li>[' + esc(item.layer) + '] ' + esc(item.name) + ' — ' + esc(item.reason) + '</li>';
-                }).join('') + '</ul>';
-            } else {
-                html += '<div class="ok-text">全部已标记为写数据的用例都记录了数据库落库校验。</div>';
-            }
-
-            html += '</div>';
+                + ' · 未校验 ' + dataCheck.unverified
+                + auditViolations(dataCheck.violations, '查看未校验用例')
+                + '</div>';
         }
 
         var designCheck = status.design_check;
@@ -898,26 +1516,21 @@
         if (designCheck) {
             var methods = designCheck.method_counts || {};
             var methodText = Object.keys(methods).map(function (key) { return key + ' ' + methods[key]; }).join(' · ') || '暂无';
+            var moduleText = (designCheck.modules || []).slice(0, 20).map(function (entry) {
+                return entry.system + ' / ' + entry.module + ' ' + entry.total;
+            }).join(' · ') || '暂无';
+            var unitText = (designCheck.units_without_positive || []).slice(0, 20).map(function (unit) {
+                return unit.test_unit;
+            }).join('、');
+
             html += '<div class="run-issues"><strong>用例设计元数据</strong>'
+                + hint('设计元数据包含 case_id、system、module、design_method、test_unit、test_point、case_kind、operation_steps。提供 design_method 时必须带齐系统 / 模块 / 测试单元 / 操作步骤，test_point 必须以「设计方法-」开头。\n\n设计方法分布：' + methodText + '\n系统 / 模块分布：' + moduleText)
                 + ' 带元数据 ' + designCheck.metadata_cases + ' / ' + designCheck.total_cases
                 + ' · 带操作步骤 ' + designCheck.operation_steps_cases
-                + ' · 设计方法 ' + esc(methodText);
-
-            if (designCheck.violations && designCheck.violations.length) {
-                html += '<ul>' + designCheck.violations.slice(0, 30).map(function (item) {
-                    return '<li>[' + esc(item.layer) + '] ' + esc(item.name) + ' — ' + esc(item.reason) + '</li>';
-                }).join('') + '</ul>';
-            } else {
-                html += '<div class="ok-text">已提供的设计元数据自洽。</div>';
-            }
-
-            if (designCheck.units_without_positive && designCheck.units_without_positive.length) {
-                html += '<div class="run-note">只有负向用例的测试单元：'
-                    + esc(designCheck.units_without_positive.slice(0, 20).map(function (unit) { return unit.test_unit; }).join('、'))
-                    + '</div>';
-            }
-
-            html += '</div>';
+                + ' · 未归类模块 ' + (designCheck.unclassified_cases || 0)
+                + auditViolations(designCheck.violations, '查看元数据异常')
+                + (unitText ? '<details class="audit-more"><summary>只有负向用例的测试单元（' + designCheck.units_without_positive.length + '）</summary><div class="run-note">' + esc(unitText) + '</div></details>' : '')
+                + '</div>';
         }
 
         return html;
@@ -931,7 +1544,7 @@
 
         if (!pageErrors.length && !consoleErrors.length) { return ''; }
 
-        var html = '<div class="run-issues"><strong>运行期错误</strong><ul>';
+        var html = '<details class="run-issues"><summary><strong>运行期错误</strong>（' + (pageErrors.length + consoleErrors.length) + '）</summary><ul>';
 
         pageErrors.forEach(function (item) {
             html += '<li>页面：' + esc(item.page_url || '') + ' · ' + esc(item.message || '') + '</li>';
@@ -941,7 +1554,7 @@
             html += '<li>Console：' + esc(typeof item === 'string' ? item : (item.text || JSON.stringify(item))) + '</li>';
         });
 
-        return html + '</ul></div>';
+        return html + '</ul></details>';
     }
 
     function renderRoundPanel(item) {
@@ -957,21 +1570,35 @@
             head.push('<span>未执行 ' + totals.not_run + '</span>');
         }
 
+        if (status.checkpoints) {
+            head.push('<span>检查点：总 <strong>' + (numberValue(status.checkpoints.total) || 0) + '</strong>'
+                + ' · 已测试 ' + (numberValue(status.checkpoints.tested) || 0)
+                + ' · 未通过 ' + (numberValue(status.checkpoints.failed) || 0)
+                + ' · 未测试 ' + (numberValue(status.checkpoints.not_tested) || 0)
+                + hint('检查点口径：用例提供 checkpoints 时以其为准；否则用例本身算 1 个检查点，db_verification.checks 的每一项再算 1 个。\n已测试 = 通过 + 未通过；未测试 = 总数 - 已测试。') + '</span>');
+        }
+
+        var diagnostics = [];
+
         if (status.coverage_scope) {
-            head.push('<span>覆盖口径：PHP ' + esc(status.coverage_scope.php || '本轮全部执行')
-                + '；JS ' + esc(status.coverage_scope.js || '本轮全部页面流程') + '</span>');
+            diagnostics.push('覆盖口径\nPHP：' + (status.coverage_scope.php || '本轮全部执行')
+                + '\nJS：' + (status.coverage_scope.js || '本轮全部页面流程'));
         }
 
         if (meta && meta.flow) {
-            head.push('<span>流程：<code>' + esc(meta.flow) + '</code></span>');
+            diagnostics.push('流程文件：' + meta.flow);
         }
 
         if (item.runs && item.runs.length) {
-            head.push('<span>运行：<code>' + esc(item.runs.map(function (run) { return run.name; }).join('、')) + '</code></span>');
+            diagnostics.push('运行：' + item.runs.map(function (run) { return run.name; }).join('、'));
+        }
+
+        if (diagnostics.length) {
+            head.push(hint(diagnostics.join('\n'), 'right'));
         }
 
         return '<div class="steps-head">' + head.join('') + '</div>'
-            + renderLayers(status.layers)
+            + renderLayers(status.layers, status.round_id || 'round')
             + renderAudits(status)
             + renderIssues(meta);
     }
@@ -1080,24 +1707,33 @@
 
     function renderCard(item, index) {
         var active = item.kind === 'round' && isActiveRound(item.status);
-        var head = [];
+        var identity = [];
+        var metrics = [];
+        var audits = [];
         var detail = '';
         var error = '';
 
         if (item.kind === 'round') {
             var status = item.status;
 
-            head.push('<span class="run-id">' + esc(status.round_id) + '</span>');
-            head.push('<span class="badge ' + roundStateClass(status) + '">' + esc(stateLabel(status)) + '</span>');
+            identity.push('<span class="run-id">' + esc(status.round_id) + '</span>');
+            identity.push('<span class="badge ' + roundStateClass(status) + '">' + esc(stateLabel(status)) + '</span>');
 
             if (status.name && status.name !== 'round') {
-                head.push('<span class="badge dim">' + esc(status.name) + '</span>');
+                identity.push('<span class="badge dim">' + esc(status.name) + '</span>');
             }
 
-            roundTimeParts(status, active).forEach(function (part) { head.push('<span>' + esc(part) + '</span>'); });
-            head.push(totalsBadge(status));
-            coverageBadges(status).forEach(function (badge) { head.push(badge); });
-            auditBadges(status).forEach(function (badge) { head.push(badge); });
+            var timeParts = roundTimeParts(status, active);
+            if (timeParts.length) { identity.push('<span class="run-time">' + esc(timeParts.join(' · ')) + '</span>'); }
+            metrics.push('<span class="run-metric">' + totalsBadge(status) + '</span>');
+            metrics.push('<span class="run-metric">' + checkpointBadge(status) + '</span>');
+
+            var coverageItems = coverageBadges(status);
+            if (coverageItems.length) {
+                metrics.push('<span class="run-metric run-metric-coverage">' + coverageItems.join('') + '</span>');
+            }
+
+            audits = auditBadges(status);
 
             detail = currentDetail(status);
 
@@ -1112,39 +1748,47 @@
             var meta = item.meta;
             var round = item.round;
 
-            head.push('<span class="run-id">' + esc(item.run.name) + '</span>');
+            identity.push('<span class="run-id">' + esc(item.run.name) + '</span>');
 
             if (!meta) {
-                head.push('<span class="badge warn">未完成</span>');
+                identity.push('<span class="badge warn">未完成</span>');
             } else if (meta.error) {
-                head.push('<span class="badge err">失败</span>');
+                identity.push('<span class="badge err">失败</span>');
             } else {
-                head.push('<span class="badge ok">成功</span>');
+                identity.push('<span class="badge ok">成功</span>');
             }
 
             if (meta) {
                 var start = startTime(meta.started_at);
                 var end = startTime(meta.finished_at);
 
-                if (start && end >= start) { head.push('<span>' + durationText((end - start) / 1000) + '</span>'); }
+                var timeParts = [];
+
+                if (start && end >= start) { timeParts.push(durationText((end - start) / 1000)); }
 
                 var started = absoluteTime(meta.started_at);
-                if (started) { head.push('<span>' + esc(started) + '</span>'); }
+                if (started) { timeParts.push(started); }
+
+                if (timeParts.length) { identity.push('<span class="run-time">' + esc(timeParts.join(' · ')) + '</span>'); }
 
                 if (round && round.totals) {
-                    head.push('<span class="badge ' + (round.totals.failed || round.totals.not_run ? 'err' : 'ok') + '">全量通过率 '
-                        + pctText(round.totals.pass_rate) + '（' + round.totals.passed + '/' + round.totals.total + '）</span>');
-                    coverageBadges({ coverage: round.coverage || {} }).forEach(function (badge) { head.push(badge); });
+                    metrics.push('<span class="run-metric"><span class="badge ' + (round.totals.failed || round.totals.not_run ? 'err' : 'ok') + '">全量通过率 '
+                        + pctText(round.totals.pass_rate) + '（' + round.totals.passed + '/' + round.totals.total + '）</span></span>');
+
+                    var roundCoverage = coverageBadges({ coverage: round.coverage || {} });
+                    if (roundCoverage.length) {
+                        metrics.push('<span class="run-metric run-metric-coverage">' + roundCoverage.join('') + '</span>');
+                    }
                 } else {
                     var stats = stepStats(meta);
 
                     if (stats.total > 0) {
-                        head.push('<span class="badge ' + (stats.failed ? 'err' : 'ok') + '">前端用例通过率 '
-                            + esc(stats.rateLabel) + '（' + stats.passed + '/' + stats.total + '）</span>');
+                        metrics.push('<span class="run-metric"><span class="badge ' + (stats.failed ? 'err' : 'ok') + '">前端用例通过率 '
+                            + esc(stats.rateLabel) + '（' + stats.passed + '/' + stats.total + '）</span></span>');
                     }
 
                     var lines = meta.coverage && meta.coverage.totals && meta.coverage.totals.lines;
-                    if (lines && lines.pct) { head.push('<span>前端行覆盖 ' + esc(lines.pct) + '</span>'); }
+                    if (lines && lines.pct) { metrics.push('<span class="run-metric">前端行覆盖 ' + esc(lines.pct) + '</span>'); }
                 }
 
                 if (meta.error) {
@@ -1159,12 +1803,28 @@
             }
         }
 
+        var statusLine = '';
+
+        if (item.kind === 'round') {
+            statusLine = '<div class="run-status-line">'
+                + (audits.length ? '<div class="run-audits">' + audits.join('') + '</div>' : '')
+                + '<div class="layers">' + layerChips(item.status) + '</div>'
+                + '</div>';
+        }
+
+        var errorHtml = error;
+
+        if (error && !active) {
+            errorHtml = '<details class="run-alert"><summary>失败摘要</summary>' + error + '</details>';
+        }
+
         return '<article class="run' + (active ? ' active' : '') + '" data-index="' + index + '">'
             + '<div class="run-row">'
-            + '<div class="run-main"><div class="run-head">' + head.join('') + '</div>'
-            + (item.kind === 'round' ? '<div class="layers">' + layerChips(item.status) + '</div>' : '')
+            + '<div class="run-main"><div class="run-head">' + identity.join('') + '</div>'
+            + (metrics.length ? '<div class="run-metrics">' + metrics.join('') + '</div>' : '')
+            + statusLine
             + (detail ? '<div class="round-detail">' + esc(detail) + '</div>' : '')
-            + error
+            + errorHtml
             + '</div>'
             + '<div class="run-actions">' + actionButtons(item, index) + '</div>'
             + '</div>'
@@ -1391,6 +2051,26 @@
     }
 
     runsBox.addEventListener('click', function (event) {
+        var moduleButton = event.target.closest('button[data-module-key]');
+
+        if (moduleButton) {
+            var moduleRoundId = moduleButton.getAttribute('data-round-id') || 'round';
+            moduleSelections[moduleRoundId] = moduleButton.getAttribute('data-module-key') || '';
+            render();
+            return;
+        }
+
+        var caretButton = event.target.closest('button[data-module-collapse]');
+
+        if (caretButton) {
+            var caretRoundId = caretButton.getAttribute('data-round-id') || 'round';
+            var system = caretButton.getAttribute('data-module-collapse') || '';
+            var collapseKey = caretRoundId + '|' + system;
+            collapsedSystems[collapseKey] = !collapsedSystems[collapseKey];
+            render();
+            return;
+        }
+
         var button = event.target.closest('button[data-index]');
         if (!button) { return; }
 
@@ -1400,6 +2080,20 @@
 
         expanded[item.key] = !expanded[item.key];
         render();
+    });
+
+    document.addEventListener('click', function (event) {
+        Array.prototype.forEach.call(document.querySelectorAll('details.hint[open]'), function (details) {
+            if (!details.contains(event.target)) { details.removeAttribute('open'); }
+        });
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape') { return; }
+
+        Array.prototype.forEach.call(document.querySelectorAll('details.hint[open]'), function (details) {
+            details.removeAttribute('open');
+        });
     });
 
     document.addEventListener('visibilitychange', function () {

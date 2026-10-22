@@ -34,6 +34,7 @@ try {
 }
 
 const { designAudit } = require('./case-design');
+const { checkpointAudit, caseCheckpoints } = require('./checkpoints');
 
 const argv = process.argv.slice(2);
 
@@ -365,6 +366,165 @@ function previousSummary() {
   return null;
 }
 
+function plainText(value) {
+  return String(value == null ? '' : value).trim();
+}
+
+function caseLayerLabel(value) {
+  const labels = { frontend: '前端', api: '接口', cli: 'CLI' };
+  return labels[value] || plainText(value) || '未分层';
+}
+
+function caseStats(cases) {
+  const stats = { total: 0, passed: 0, failed: 0, not_run: 0 };
+
+  for (const item of cases) {
+    stats.total++;
+    if (item.status === 'passed') stats.passed++;
+    else if (item.status === 'failed') stats.failed++;
+    else stats.not_run++;
+  }
+
+  return stats;
+}
+
+function buildCaseGroups(layers) {
+  const systemMap = new Map();
+
+  for (const [key, label] of [['frontend', '前端'], ['api', '接口'], ['cli', 'CLI']]) {
+    const cases = layers && layers[key] && Array.isArray(layers[key].cases) ? layers[key].cases : [];
+
+    for (const item of cases) {
+      if (!item || item.synthetic === true) continue;
+
+      const system = plainText(item.system) || '未归类';
+      const module = plainText(item.module) || '未分模块';
+
+      if (!systemMap.has(system)) {
+        systemMap.set(system, { name: system, modules: new Map(), cases: [] });
+      }
+
+      const group = systemMap.get(system);
+
+      if (!group.modules.has(module)) {
+        group.modules.set(module, { name: module, cases: [] });
+      }
+
+      const entry = Object.assign({}, item, { _layer: label });
+      group.cases.push(entry);
+      group.modules.get(module).cases.push(entry);
+    }
+  }
+
+  const systems = Array.from(systemMap.values()).sort((a, b) => {
+    if (a.name === '未归类') return 1;
+    if (b.name === '未归类') return -1;
+    return a.name.localeCompare(b.name, 'zh-CN');
+  });
+
+  systems.forEach((system, systemIndex) => {
+    system.key = 'sys' + systemIndex;
+    system.stats = caseStats(system.cases);
+    system.modules = Array.from(system.modules.values()).sort((a, b) => {
+      if (a.name === '未分模块') return 1;
+      if (b.name === '未分模块') return -1;
+      return a.name.localeCompare(b.name, 'zh-CN');
+    });
+
+    system.modules.forEach((module, moduleIndex) => {
+      module.key = 'mod' + systemIndex + '-' + moduleIndex;
+      module.stats = caseStats(module.cases);
+    });
+  });
+
+  return systems;
+}
+
+function renderCaseFilterButton(key, label, stats, extraClass = '') {
+  return `<button type="button" class="report-filter${extraClass ? ' ' + extraClass : ''}${key === 'all' ? ' active' : ''}"
+      data-case-filter="${esc(key)}" data-label="${esc(label)}"
+      data-total="${stats.total}" data-passed="${stats.passed}" data-failed="${stats.failed}" data-not-run="${stats.not_run}">
+      <span class="report-filter-name">${esc(label)}</span>
+      <span class="report-filter-count">${stats.passed}/${stats.total}</span>
+      ${stats.failed ? `<em>失败 ${stats.failed}</em>` : ''}
+    </button>`;
+}
+
+function renderReportCaseItem(item, system, module) {
+  const status = item.status === 'passed' ? 'ok' : item.status === 'failed' ? 'err' : 'warn';
+  const statusText = item.status === 'passed' ? '通过' : item.status === 'failed' ? '失败' : '未执行';
+  const checkpoints = caseCheckpoints(item);
+  const passedChecks = checkpoints.filter((checkpoint) => checkpoint.status === 'passed');
+  const failedChecks = checkpoints.filter((checkpoint) => checkpoint.status === 'failed');
+  const notRunChecks = checkpoints.filter((checkpoint) => checkpoint.status === 'not_run');
+  const notes = [];
+
+  if (checkpoints.length) {
+    notes.push(`检查点 ${passedChecks.length}/${checkpoints.length} 通过`
+      + (failedChecks.length ? `，未通过 ${failedChecks.length}` : '')
+      + (notRunChecks.length ? `，未测试 ${notRunChecks.length}` : '')
+      + (failedChecks.length ? `（${failedChecks.map((checkpoint) => checkpoint.name).join('、')}）` : ''));
+  }
+
+  if (item.via_page) notes.push('穿透页面：' + item.via_page);
+  else if (item.unreachable_reason) notes.push('页面不可达：' + item.unreachable_reason);
+
+  if (item.mutates_data) notes.push(item.db_verification ? '落库已校验' : '落库未校验');
+
+  const design = [];
+
+  if (item.case_id) design.push('编号 ' + item.case_id);
+  if (item.design_method) design.push('设计方法 ' + item.design_method);
+  if (item.test_unit) design.push('测试单元 ' + item.test_unit);
+  if (item.test_point) design.push('测试点 ' + item.test_point);
+
+  return `<li class="report-case" data-case-system="${esc(system.key)}" data-case-module="${esc(module.key)}">
+      <div class="report-case-head">
+        <span class="badge ${status}">${statusText}</span>
+        <span class="report-case-name">${esc(item.name)}</span>
+        <span class="report-case-tags">${esc(system.name)} / ${esc(module.name)} · ${esc(item._layer)}</span>
+      </div>
+      ${design.length ? `<p class="report-case-design">${esc(design.join(' · '))}</p>` : ''}
+      <p class="report-case-note">${esc(notes.join(' · ') || '无附加校验信息')}</p>
+      <p class="report-case-steps">操作步骤：${esc(item.operation_steps || '历史用例未记录')}</p>
+      ${item.status !== 'passed' ? `<p class="report-case-result"><span>期望：${esc(item.expected || '—')}</span><span>实际：${esc(item.actual || '—')}</span></p>` : ''}
+    </li>`;
+}
+
+function renderCaseDetails(summary) {
+  const systems = buildCaseGroups(summary.layers);
+  const allCases = systems.flatMap((system) => system.cases);
+  const allStats = caseStats(allCases);
+  const sidebar = [
+    renderCaseFilterButton('all', '全部用例', allStats),
+    ...systems.map((system) => (
+      `<div class="report-system">
+        ${renderCaseFilterButton(system.key, system.name, system.stats, 'system')}
+        ${system.modules.map((module) => renderCaseFilterButton(module.key, module.name, module.stats, 'sub')).join('')}
+      </div>`
+    )),
+  ].join('');
+  const items = systems.map((system) => (
+    system.modules.map((module) => (
+      module.cases.map((item) => renderReportCaseItem(item, system, module)).join('')
+    )).join('')
+  )).join('');
+
+  return `<div class="report-case-browser">
+      <aside class="report-case-sidebar">
+        <div class="report-case-sidebar-title">系统 / 模块</div>
+        ${sidebar}
+      </aside>
+      <section class="report-case-main">
+        <div class="report-case-head-line">
+          <strong>全部用例</strong>
+          <span class="report-case-summary">${allStats.total} 条 · 通过 ${allStats.passed} · 失败 ${allStats.failed} · 未执行 ${allStats.not_run}</span>
+        </div>
+        <ol class="report-case-list">${items}</ol>
+      </section>
+    </div>`;
+}
+
 function renderHtml(summary) {
   const layerRows = Object.values(summary.layers).map((layer) => `
       <div class="metric">
@@ -374,15 +534,31 @@ function renderHtml(summary) {
       </div>`).join('');
 
   const failures = summary.totals.issues;
-  const failureRows = failures.length ? failures.map((item) => `
+  const checkpoints = summary.checkpoints || checkpointAudit(summary.layers);
+  const failureRows = failures.length ? failures.map((item) => {
+    const caseChecks = caseCheckpoints(item);
+    const passedChecks = caseChecks.filter((checkpoint) => checkpoint.status === 'passed');
+    const failedChecks = caseChecks.filter((checkpoint) => checkpoint.status === 'failed');
+    const checkpointText = caseChecks.length
+      ? `${passedChecks.length}/${caseChecks.length} 通过`
+        + (failedChecks.length ? `；未通过：${failedChecks.map((checkpoint) => checkpoint.name).join('、')}` : '')
+      : '—';
+    const moduleName = item.system || item.module
+      ? [item.system || '未归类', item.module || '未分模块'].join(' / ')
+      : '未归类 / 未分模块';
+
+    return `
       <tr>
         <td><span class="badge ${item.status === 'not_run' ? 'warn' : 'err'}">${item.status === 'not_run' ? '未执行' : '失败'}</span></td>
         <td class="layer">${esc(item.layer)}</td>
+        <td class="module-col">${esc(moduleName)}</td>
         <td class="case-name">${esc(item.name)}</td>
         <td class="operation-steps">${esc(item.operation_steps || '—')}</td>
+        <td class="checkpoint-col">${esc(checkpointText)}</td>
         <td class="expected">${esc(item.expected || '—')}</td>
         <td class="actual">${esc(item.actual || '—')}</td>
-      </tr>`).join('') : '<tr><td colspan="6" class="empty">本轮没有失败或未执行的用例</td></tr>';
+      </tr>`;
+  }).join('') : '<tr><td colspan="8" class="empty">本轮没有失败或未执行的用例</td></tr>';
 
   const traceHref = summary.playwright.run_id
     ? '/trace/index.html?trace=' + encodeURIComponent('/artifacts/runs/' + summary.playwright.run_id + '/trace.zip')
@@ -408,6 +584,15 @@ function renderHtml(summary) {
   const unitWarnings = (designCheck.units_without_positive || []).length
     ? `<p class="meta">以下测试单元只有负向用例，建议补正向：${designCheck.units_without_positive.slice(0, 20).map((unit) => esc(unit.test_unit)).join('、')}${designCheck.units_without_positive.length > 20 ? ' 等' : ''}</p>`
     : '';
+  const moduleText = (designCheck.modules || []).length
+    ? designCheck.modules.slice(0, 40).map((entry) => `${esc(entry.system)} / ${esc(entry.module)} ${entry.total}`).join(' · ')
+    : '暂无系统 / 模块元数据';
+  const layerCheckpointText = Object.values(checkpoints.by_layer || {})
+    .map((layer) => `${esc(layer.name)} ${layer.passed}/${layer.tested} 通过（总 ${layer.total}）`)
+    .join(' · ');
+  const checkpointViolations = (checkpoints.violations || []).length
+    ? `<ul class="violations">${checkpoints.violations.slice(0, 30).map((item) => `<li>[${esc(item.layer)}] ${esc(item.name)} — ${esc(item.reason)}</li>`).join('')}</ul>`
+    : '<p class="ok-text">已记录的检查点状态与用例状态一致。</p>';
 
   const phpDelta = summary.coverage_delta ? summary.coverage_delta.php_business : null;
   const jsDelta = summary.coverage_delta ? summary.coverage_delta.js : null;
@@ -469,7 +654,9 @@ function renderHtml(summary) {
     .layer { width: 64px; min-width: 64px; white-space: nowrap; }
     .status-col { width: 64px; white-space: nowrap; }
     .case-name { min-width:180px; font-weight:600; }
+    .module-col { min-width:130px; color:var(--muted); }
     .operation-steps { min-width:220px; color:var(--muted); word-break:break-word; }
+    .checkpoint-col { min-width:170px; color:var(--muted); word-break:break-word; }
     .expected { min-width:220px; color:var(--muted); }
     .actual { min-width:240px; color:var(--err); word-break:break-word; }
     .badge { display:inline-block; padding:1px 8px; border-radius:999px; font-size:11.5px; font-weight:600; white-space:nowrap; }
@@ -483,7 +670,30 @@ function renderHtml(summary) {
     .violations { color:var(--err); }
     .suggestions { color:var(--text); }
     .suggestions code, .violations code { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:11.5px; word-break:break-all; }
-    @media (max-width:760px) { .wrap{padding:20px 12px 36px;} .expected,.actual{min-width:160px;} }
+    [hidden] { display: none !important; }
+    .report-case-browser { display:grid; grid-template-columns:minmax(190px,240px) minmax(0,1fr); gap:12px; }
+    .report-case-sidebar { padding:8px; border:1px solid var(--border); border-radius:12px; background:var(--panel); max-height:640px; overflow:auto; }
+    .report-case-sidebar-title { margin:2px 4px 6px; color:var(--muted); font-size:11.5px; font-weight:600; letter-spacing:.04em; }
+    .report-filter { display:flex; width:100%; align-items:center; gap:6px; padding:5px 8px; border:0; border-radius:6px; background:transparent; color:var(--text); cursor:pointer; font:inherit; font-size:12.5px; text-align:left; }
+    .report-filter:hover { background:var(--bg); }
+    .report-filter.active { background:var(--accent-soft); color:var(--accent); font-weight:600; }
+    .report-filter.system { margin-top:3px; font-weight:600; }
+    .report-filter.sub { padding-left:22px; font-size:12px; }
+    .report-filter-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .report-filter-count { color:var(--muted); font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:11px; }
+    .report-filter em { color:var(--err); font-style:normal; font-size:10.5px; }
+    .report-case-main { min-width:0; }
+    .report-case-head-line { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 12px; margin-bottom:8px; color:var(--muted); font-size:12.5px; }
+    .report-case-head-line strong { color:var(--text); font-size:14px; }
+    .report-case-list { list-style:none; margin:0; padding:0; max-height:640px; overflow:auto; border:1px solid var(--border); border-radius:12px; background:var(--panel); }
+    .report-case { padding:10px 12px; border-bottom:1px solid var(--border); }
+    .report-case:last-child { border-bottom:0; }
+    .report-case-head { display:flex; flex-wrap:wrap; align-items:center; gap:5px 10px; }
+    .report-case-name { font-weight:600; word-break:break-word; }
+    .report-case-tags { color:var(--muted); font-size:11.5px; }
+    .report-case-design, .report-case-note, .report-case-steps, .report-case-result { margin:4px 0 0; color:var(--muted); font-size:12px; line-height:1.55; word-break:break-word; }
+    .report-case-result { display:grid; gap:2px; color:var(--err); }
+    @media (max-width:760px) { .wrap{padding:20px 12px 36px;} .expected,.actual{min-width:160px;} .report-case-browser{grid-template-columns:1fr;} .report-case-sidebar{max-height:220px;} .report-case-list{max-height:none;} }
 </style>
 </head>
 <body>
@@ -496,6 +706,11 @@ function renderHtml(summary) {
             <div class="metric-label">全量用例通过率</div>
             <div class="metric-value ${summary.totals.failed || summary.totals.not_run ? 'err' : 'ok'}">${fmtPct(summary.totals.pass_rate)}</div>
             <div class="metric-sub">${summary.totals.passed}/${summary.totals.total} 通过 · 失败 ${summary.totals.failed} · 未执行 ${summary.totals.not_run}</div>
+        </div>
+        <div class="metric">
+            <div class="metric-label">检查点通过率</div>
+            <div class="metric-value ${checkpoints.failed ? 'err' : 'ok'}">${fmtPct(checkpoints.pass_rate)}</div>
+            <div class="metric-sub">总 ${checkpoints.total} · 已测试 ${checkpoints.tested} · 未通过 ${checkpoints.failed} · 未测试 ${checkpoints.not_tested}</div>
         </div>
         ${layerRows}
     </div>
@@ -512,6 +727,14 @@ function renderHtml(summary) {
         <p>写数据用例 ${dataCheck.mutating_cases} 条 · 已校验 ${dataCheck.verified} 条 · 未校验 ${dataCheck.unverified} 条${dataCheck.compliant ? ' · 全部已校验' : ''}</p>
         ${dataCheckViolations}
         <p class="meta" style="margin-top:8px">规则：凡会写数据的用例（新增、修改、删除、状态流转，以及应被拒绝的写入请求），标记 <code>mutates_data: true</code>，并在 <code>db_verification</code> 记录数据库中的实际结果；仅页面提示或接口返回成功不算通过。<code>DATA_CHECK_STRICT=1</code> 时缺少校验会让本轮报告失败。</p>
+    </div>
+
+    <div class="section-title">检查点统计</div>
+    <div class="card">
+        <p>总检查点 ${checkpoints.total} 个 · 已测试 ${checkpoints.tested} 个 · 通过 ${checkpoints.passed} 个 · 未通过 ${checkpoints.failed} 个 · 未测试 ${checkpoints.not_tested} 个</p>
+        <p class="meta">分层：${layerCheckpointText} · 显式记录 ${checkpoints.explicit_cases} 条用例，按落库检查 / 用例结果推导 ${checkpoints.derived_cases} 条。</p>
+        ${checkpointViolations}
+        <p class="meta" style="margin-top:8px">口径：用例提供 <code>checkpoints</code> 时以其为准；否则用例本身算 1 个检查点，<code>db_verification.checks</code> 中的每一项再算 1 个。未测试 = 总数 - 已测试。</p>
     </div>
 
     <div class="section-title">覆盖率（本轮完整执行）</div>
@@ -551,12 +774,16 @@ function renderHtml(summary) {
 
     <div class="section-title">用例设计元数据</div>
     <div class="card">
-        <p>带设计元数据 ${designCheck.metadata_cases} / ${designCheck.total_cases} 条 · 带操作步骤 ${designCheck.operation_steps_cases} 条</p>
+        <p>带设计元数据 ${designCheck.metadata_cases} / ${designCheck.total_cases} 条 · 带操作步骤 ${designCheck.operation_steps_cases} 条 · 未归类模块 ${designCheck.unclassified_cases} 条</p>
         <p class="meta">设计方法分布：${designMethodText}</p>
+        <p class="meta">系统 / 模块分布：${moduleText}</p>
         ${designViolations}
         ${unitWarnings}
         <p class="meta" style="margin-top:8px">协议：<code>case_id</code>、<code>design_method</code>、<code>test_unit</code>、<code>test_point</code>（必须以「设计方法-」开头）、<code>case_kind</code>（positive / negative）、<code>operation_steps</code>。提供 <code>design_method</code> 时强校验其余字段；<code>DESIGN_STRICT=1</code> 时元数据错误会让本轮报告失败。</p>
     </div>
+
+    <div class="section-title">用例明细</div>
+    ${renderCaseDetails(summary)}
 
     <div class="section-title">下一轮补测建议</div>
     <div class="card">
@@ -566,12 +793,40 @@ function renderHtml(summary) {
 
     <div class="section-title">失败 / 未执行用例</div>
     <table>
-        <thead><tr><th class="status-col">状态</th><th class="layer">层</th><th>用例</th><th>操作步骤</th><th>应该表现</th><th>实际表现</th></tr></thead>
+        <thead><tr><th class="status-col">状态</th><th class="layer">层</th><th>系统 / 模块</th><th>用例</th><th>操作步骤</th><th>检查点</th><th>应该表现</th><th>实际表现</th></tr></thead>
         <tbody>${failureRows}</tbody>
     </table>
 
     <p class="meta" style="margin-top:20px">统计口径：通过率 = 通过用例 / 本轮全部用例（未执行也计入分母）；PHP 覆盖率包含本轮全部页面、API、CLI 与队列流量，JS 覆盖率包含本轮全部 Playwright 页面流程。前端步骤、接口用例与 CLI 用例分别记录，失败不中断后续用例。</p>
 </div>
+<script>
+(function () {
+    var browser = document.querySelector('.report-case-browser');
+    if (!browser) { return; }
+
+    var buttons = Array.prototype.slice.call(browser.querySelectorAll('[data-case-filter]'));
+    var items = Array.prototype.slice.call(browser.querySelectorAll('.report-case-list > li'));
+    var label = browser.querySelector('.report-case-head-line strong');
+    var summary = browser.querySelector('.report-case-summary');
+
+    function apply(filter, button) {
+        buttons.forEach(function (item) { item.classList.toggle('active', item === button); });
+        items.forEach(function (item) {
+            var show = filter === 'all'
+                || (filter.indexOf('sys') === 0 && item.getAttribute('data-case-system') === filter)
+                || item.getAttribute('data-case-module') === filter;
+            item.hidden = !show;
+        });
+        label.textContent = button.getAttribute('data-label');
+        summary.textContent = button.getAttribute('data-total') + ' 条 · 通过 ' + button.getAttribute('data-passed')
+            + ' · 失败 ' + button.getAttribute('data-failed') + ' · 未执行 ' + button.getAttribute('data-not-run');
+    }
+
+    buttons.forEach(function (button) {
+        button.addEventListener('click', function () { apply(button.getAttribute('data-case-filter'), button); });
+    });
+})();
+</script>
 </body>
 </html>`;
 }
@@ -601,6 +856,7 @@ function buildSummary() {
   const pageFirst = pageFirstAudit(layers);
   const dataCheck = dataCheckAudit(layers);
   const designCheck = designAudit(layers);
+  const checkpoints = checkpointAudit(layers);
   const previous = previousSummary();
   const coverage = {
     php_full: parsePhpCoverage(phpFullText),
@@ -636,6 +892,7 @@ function buildSummary() {
     page_first: pageFirst,
     data_check: dataCheck,
     design_check: designCheck,
+    checkpoints,
     next_round_suggestions: {
       php: uncoveredSuggestions(readText(path.join(roundDir, 'php-uncovered.txt')), 8),
       js: uncoveredSuggestions(readText(path.join(roundDir, 'js-uncovered.txt')), 8),
@@ -654,9 +911,12 @@ function buildSummary() {
     `- ${layer.name}：${fmtPct(layer.pass_rate)}（${layer.passed}/${layer.total}）${layer.not_run ? '，未执行 ' + layer.not_run : ''}`
   ).join('\n');
 
-  const issueLines = issues.length ? issues.map((item) =>
-    `- [${item.status === 'not_run' ? '未执行' : '失败'}] ${item.layer} / ${item.name}\n  - 操作步骤：${item.operation_steps || '—'}\n  - 应该表现：${item.expected || '—'}\n  - 实际表现：${item.actual || '—'}`
-  ).join('\n') : '- 无';
+  const issueLines = issues.length ? issues.map((item) => {
+    const caseChecks = caseCheckpoints(item);
+    const failedChecks = caseChecks.filter((checkpoint) => checkpoint.status === 'failed');
+
+    return `- [${item.status === 'not_run' ? '未执行' : '失败'}] ${item.layer} / ${item.system || '未归类'} / ${item.module || '未分模块'} / ${item.name}\n  - 操作步骤：${item.operation_steps || '—'}\n  - 检查点：${caseChecks.length} 个，未通过 ${failedChecks.length} 个${failedChecks.length ? '（' + failedChecks.map((checkpoint) => checkpoint.name).join('、') + '）' : ''}\n  - 应该表现：${item.expected || '—'}\n  - 实际表现：${item.actual || '—'}`;
+  }).join('\n') : '- 无';
 
   const pageFirstLines = pageFirst.violations.length
     ? pageFirst.violations.map((item) => `- [${item.layer}] ${item.name}：${item.reason}`).join('\n')
@@ -668,6 +928,15 @@ function buildSummary() {
   const unitWarnings = (designCheck.units_without_positive || []).length
     ? `- 以下测试单元只有负向用例，建议补正向：${designCheck.units_without_positive.slice(0, 20).map((unit) => unit.test_unit).join('、')}${designCheck.units_without_positive.length > 20 ? ' 等' : ''}`
     : '';
+  const moduleText = (designCheck.modules || []).length
+    ? designCheck.modules.slice(0, 40).map((entry) => `${entry.system} / ${entry.module} ${entry.total}`).join(' · ')
+    : '暂无系统 / 模块元数据';
+  const layerCheckpointText = Object.values(checkpoints.by_layer || {})
+    .map((layer) => `${layer.name} ${layer.passed}/${layer.tested} 通过（总 ${layer.total}）`)
+    .join(' · ');
+  const checkpointViolationLines = (checkpoints.violations || []).length
+    ? checkpoints.violations.map((item) => `- [${item.layer}] ${item.name}：${item.reason}`).join('\n')
+    : '- 已记录的检查点状态与用例状态一致';
 
   const suggestionLines = [
     ...summary.next_round_suggestions.php.map((line) => `- [PHP] ${line}`),
@@ -691,11 +960,27 @@ ${layerLines}
 
 ${dataCheck.violations.length ? dataCheck.violations.map((item) => `- [${item.layer}] ${item.name}：${item.reason}`).join('\n') : '- 全部已标记为写数据的用例都记录了数据库落库校验'}
 
+## 检查点统计
+
+- 总检查点：${checkpoints.total}
+- 已测试：${checkpoints.tested}
+- 通过：${checkpoints.passed}
+- 未通过：${checkpoints.failed}
+- 未测试：${checkpoints.not_tested}
+- 分层：${layerCheckpointText}
+- 显式记录检查点的用例：${checkpoints.explicit_cases}；按落库检查 / 用例结果推导：${checkpoints.derived_cases}
+
+${checkpointViolationLines}
+
+口径：用例提供 checkpoints 时以其为准；否则用例本身算 1 个检查点，db_verification.checks 中的每一项再算 1 个。
+
 ## 用例设计元数据
 
 - 带设计元数据：${designCheck.metadata_cases} / ${designCheck.total_cases}
 - 带操作步骤：${designCheck.operation_steps_cases}
+- 未归类模块：${designCheck.unclassified_cases}
 - 设计方法分布：${designMethodText}
+- 系统 / 模块分布：${moduleText}
 ${designCheck.violations.length ? designCheck.violations.map((item) => `- [${item.layer}] ${item.name}：${item.reason}`).join('\n') : '- 已提供的设计元数据自洽'}
 ${unitWarnings || ''}
 
@@ -755,4 +1040,5 @@ console.log(`全量通过率：${fmtPct(summary.totals.pass_rate)}（${summary.t
 console.log(`页面穿透：页面 ${summary.page_first.frontend_cases} / 关联 ${summary.page_first.via_page} / 不可达说明 ${summary.page_first.unreachable} / 未分类 ${summary.page_first.unclassified}`);
 console.log(`落库校验：写数据 ${summary.data_check.mutating_cases} / 已校验 ${summary.data_check.verified} / 未校验 ${summary.data_check.unverified}`);
 console.log(`设计元数据：${summary.design_check.metadata_cases}/${summary.design_check.total_cases} 条 · 操作步骤 ${summary.design_check.operation_steps_cases} 条 · 元数据错误 ${summary.design_check.violations.length} 条`);
+console.log(`检查点：总 ${summary.checkpoints.total} · 已测试 ${summary.checkpoints.tested} · 通过 ${summary.checkpoints.passed} · 未通过 ${summary.checkpoints.failed} · 未测试 ${summary.checkpoints.not_tested}`);
 console.log(`报告：${path.join(roundDir, 'index.html')}`);
