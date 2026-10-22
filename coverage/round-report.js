@@ -2,7 +2,7 @@
  * 单轮全量测试报告：合并前端步骤、接口用例、CLI 用例的通过率，
  * 以及本轮的前端 JS / 后端 PHP 覆盖率，生成 summary.json、summary.md 与 index.html。
  *
- * 用法：round-report <round_dir> [<playwright_run_dir>] [--previous=<summary.json>] [--strict-page-first] [--strict-data-check]
+ * 用法：round-report <round_dir> [<playwright_run_dir>] [--previous=<summary.json>] [--strict-page-first] [--strict-data-check] [--strict-design]
  *
  * 本轮语义：
  *   - PHP 覆盖率 = 本轮全部页面 / API / CLI / 队列执行，不只是接口与 CLI；
@@ -33,6 +33,8 @@ try {
   // 从非标准安装路径单独运行时，仍可生成报告，只是不自动查找上一轮
 }
 
+const { designAudit } = require('./case-design');
+
 const argv = process.argv.slice(2);
 
 if (!argv[0] && process.env.ROUND_DIR) {
@@ -56,6 +58,7 @@ function flagValue(name) {
 const auditStrict = process.env.AUDIT_STRICT === '1';
 const strictPageFirst = argv.includes('--strict-page-first') || process.env.PAGE_FIRST_STRICT === '1' || auditStrict;
 const strictDataCheck = argv.includes('--strict-data-check') || process.env.DATA_CHECK_STRICT === '1' || auditStrict;
+const strictDesign = argv.includes('--strict-design') || process.env.DESIGN_STRICT === '1' || auditStrict;
 const positional = [];
 const valueFlags = new Set(['--previous']);
 
@@ -71,7 +74,7 @@ for (let i = 0; i < argv.length; i++) {
 }
 
 if (!positional[0] && !process.env.ROUND_DIR) {
-  console.log(`用法：round-report <round_dir> [<playwright_run_dir>] [--previous=<summary.json>] [--strict-page-first] [--strict-data-check]
+  console.log(`用法：round-report <round_dir> [<playwright_run_dir>] [--previous=<summary.json>] [--strict-page-first] [--strict-data-check] [--strict-design]
 
 round_dir 需包含本轮测试结果：
   frontend-cases.json       前端用例（status: passed / failed / not_run）
@@ -80,6 +83,10 @@ round_dir 需包含本轮测试结果：
   php-coverage-full.txt     后端完整口径覆盖率文本
   php-coverage-business.txt 后端业务口径覆盖率文本
   js-coverage.txt           前端 V8 覆盖率文本
+
+用例可选设计元数据：case_id / design_method / test_unit / test_point / case_kind / operation_steps。
+提供 design_method 的用例会校验设计方法、测试点前缀、测试单元与操作步骤；
+--strict-design 时元数据错误会让报告失败。
 
 生成 summary.json、summary.md、index.html，并写回 round_dir。
 将整个 round_dir 发布到 /var/log/harness-coverage/rounds/<round_id>/report/ 后，8080 自动展示。`);
@@ -199,6 +206,7 @@ function frontendFromMeta(meta) {
       duration_ms: step.duration_ms,
       expected: step.status === 'ok' ? '' : '该步骤断言通过',
       actual: step.error || '',
+      operation_steps: step.operation_steps || '',
     })),
   };
 }
@@ -371,9 +379,10 @@ function renderHtml(summary) {
         <td><span class="badge ${item.status === 'not_run' ? 'warn' : 'err'}">${item.status === 'not_run' ? '未执行' : '失败'}</span></td>
         <td class="layer">${esc(item.layer)}</td>
         <td class="case-name">${esc(item.name)}</td>
+        <td class="operation-steps">${esc(item.operation_steps || '—')}</td>
         <td class="expected">${esc(item.expected || '—')}</td>
         <td class="actual">${esc(item.actual || '—')}</td>
-      </tr>`).join('') : '<tr><td colspan="5" class="empty">本轮没有失败或未执行的用例</td></tr>';
+      </tr>`).join('') : '<tr><td colspan="6" class="empty">本轮没有失败或未执行的用例</td></tr>';
 
   const traceHref = summary.playwright.run_id
     ? '/trace/index.html?trace=' + encodeURIComponent('/artifacts/runs/' + summary.playwright.run_id + '/trace.zip')
@@ -388,6 +397,17 @@ function renderHtml(summary) {
   const dataCheckViolations = dataCheck.violations.length
     ? `<ul class="violations">${dataCheck.violations.slice(0, 30).map((item) => `<li>[${esc(item.layer)}] ${esc(item.name)} — ${esc(item.reason)}</li>`).join('')}</ul>${dataCheck.violations.length > 30 ? `<p class="meta">另有 ${dataCheck.violations.length - 30} 条未展示</p>` : ''}`
     : '<p class="ok-text">全部已标记为写数据的用例都记录了数据库落库校验。</p>';
+
+  const designCheck = summary.design_check || { metadata_cases: 0, total_cases: 0, operation_steps_cases: 0, method_counts: {}, units_without_positive: [], violations: [] };
+  const designMethodText = Object.keys(designCheck.method_counts || {}).length
+    ? Object.entries(designCheck.method_counts).map(([name, count]) => `${esc(name)} ${count}`).join(' · ')
+    : '暂无设计方法元数据';
+  const designViolations = (designCheck.violations || []).length
+    ? `<ul class="violations">${designCheck.violations.slice(0, 30).map((item) => `<li>[${esc(item.layer)}] ${esc(item.name)} — ${esc(item.reason)}</li>`).join('')}</ul>${designCheck.violations.length > 30 ? `<p class="meta">另有 ${designCheck.violations.length - 30} 条未展示</p>` : ''}`
+    : '<p class="ok-text">已提供的设计元数据自洽。</p>';
+  const unitWarnings = (designCheck.units_without_positive || []).length
+    ? `<p class="meta">以下测试单元只有负向用例，建议补正向：${designCheck.units_without_positive.slice(0, 20).map((unit) => esc(unit.test_unit)).join('、')}${designCheck.units_without_positive.length > 20 ? ' 等' : ''}</p>`
+    : '';
 
   const phpDelta = summary.coverage_delta ? summary.coverage_delta.php_business : null;
   const jsDelta = summary.coverage_delta ? summary.coverage_delta.js : null;
@@ -449,6 +469,7 @@ function renderHtml(summary) {
     .layer { width: 64px; min-width: 64px; white-space: nowrap; }
     .status-col { width: 64px; white-space: nowrap; }
     .case-name { min-width:180px; font-weight:600; }
+    .operation-steps { min-width:220px; color:var(--muted); word-break:break-word; }
     .expected { min-width:220px; color:var(--muted); }
     .actual { min-width:240px; color:var(--err); word-break:break-word; }
     .badge { display:inline-block; padding:1px 8px; border-radius:999px; font-size:11.5px; font-weight:600; white-space:nowrap; }
@@ -528,6 +549,15 @@ function renderHtml(summary) {
         </div>
     </div>
 
+    <div class="section-title">用例设计元数据</div>
+    <div class="card">
+        <p>带设计元数据 ${designCheck.metadata_cases} / ${designCheck.total_cases} 条 · 带操作步骤 ${designCheck.operation_steps_cases} 条</p>
+        <p class="meta">设计方法分布：${designMethodText}</p>
+        ${designViolations}
+        ${unitWarnings}
+        <p class="meta" style="margin-top:8px">协议：<code>case_id</code>、<code>design_method</code>、<code>test_unit</code>、<code>test_point</code>（必须以「设计方法-」开头）、<code>case_kind</code>（positive / negative）、<code>operation_steps</code>。提供 <code>design_method</code> 时强校验其余字段；<code>DESIGN_STRICT=1</code> 时元数据错误会让本轮报告失败。</p>
+    </div>
+
     <div class="section-title">下一轮补测建议</div>
     <div class="card">
         <p>优先补测以下未覆盖行；能从页面触发的先写页面用例，页面不可达的再补接口 / CLI。</p>
@@ -536,7 +566,7 @@ function renderHtml(summary) {
 
     <div class="section-title">失败 / 未执行用例</div>
     <table>
-        <thead><tr><th class="status-col">状态</th><th class="layer">层</th><th>用例</th><th>应该表现</th><th>实际表现</th></tr></thead>
+        <thead><tr><th class="status-col">状态</th><th class="layer">层</th><th>用例</th><th>操作步骤</th><th>应该表现</th><th>实际表现</th></tr></thead>
         <tbody>${failureRows}</tbody>
     </table>
 
@@ -570,6 +600,7 @@ function buildSummary() {
   const jsText = readText(path.join(roundDir, 'js-coverage.txt'));
   const pageFirst = pageFirstAudit(layers);
   const dataCheck = dataCheckAudit(layers);
+  const designCheck = designAudit(layers);
   const previous = previousSummary();
   const coverage = {
     php_full: parsePhpCoverage(phpFullText),
@@ -604,6 +635,7 @@ function buildSummary() {
     },
     page_first: pageFirst,
     data_check: dataCheck,
+    design_check: designCheck,
     next_round_suggestions: {
       php: uncoveredSuggestions(readText(path.join(roundDir, 'php-uncovered.txt')), 8),
       js: uncoveredSuggestions(readText(path.join(roundDir, 'js-uncovered.txt')), 8),
@@ -623,12 +655,19 @@ function buildSummary() {
   ).join('\n');
 
   const issueLines = issues.length ? issues.map((item) =>
-    `- [${item.status === 'not_run' ? '未执行' : '失败'}] ${item.layer} / ${item.name}\n  - 应该表现：${item.expected || '—'}\n  - 实际表现：${item.actual || '—'}`
+    `- [${item.status === 'not_run' ? '未执行' : '失败'}] ${item.layer} / ${item.name}\n  - 操作步骤：${item.operation_steps || '—'}\n  - 应该表现：${item.expected || '—'}\n  - 实际表现：${item.actual || '—'}`
   ).join('\n') : '- 无';
 
   const pageFirstLines = pageFirst.violations.length
     ? pageFirst.violations.map((item) => `- [${item.layer}] ${item.name}：${item.reason}`).join('\n')
     : '- 全部接口 / CLI 用例都已关联页面用例或说明页面不可达原因';
+
+  const designMethodText = Object.keys(designCheck.method_counts || {}).length
+    ? Object.entries(designCheck.method_counts).map(([name, count]) => `${name} ${count}`).join(' · ')
+    : '暂无设计方法元数据';
+  const unitWarnings = (designCheck.units_without_positive || []).length
+    ? `- 以下测试单元只有负向用例，建议补正向：${designCheck.units_without_positive.slice(0, 20).map((unit) => unit.test_unit).join('、')}${designCheck.units_without_positive.length > 20 ? ' 等' : ''}`
+    : '';
 
   const suggestionLines = [
     ...summary.next_round_suggestions.php.map((line) => `- [PHP] ${line}`),
@@ -651,6 +690,14 @@ ${layerLines}
 - 已校验：${dataCheck.verified}；未校验：${dataCheck.unverified}
 
 ${dataCheck.violations.length ? dataCheck.violations.map((item) => `- [${item.layer}] ${item.name}：${item.reason}`).join('\n') : '- 全部已标记为写数据的用例都记录了数据库落库校验'}
+
+## 用例设计元数据
+
+- 带设计元数据：${designCheck.metadata_cases} / ${designCheck.total_cases}
+- 带操作步骤：${designCheck.operation_steps_cases}
+- 设计方法分布：${designMethodText}
+${designCheck.violations.length ? designCheck.violations.map((item) => `- [${item.layer}] ${item.name}：${item.reason}`).join('\n') : '- 已提供的设计元数据自洽'}
+${unitWarnings || ''}
 
 ## 覆盖率（本轮完整执行）
 
@@ -695,6 +742,11 @@ ${suggestionLines}
     process.exitCode = 1;
   }
 
+  if (strictDesign && !designCheck.compliant) {
+    console.error(`用例设计元数据校验未通过：${designCheck.violations.length} 条元数据错误`);
+    process.exitCode = 1;
+  }
+
   return summary;
 }
 
@@ -702,4 +754,5 @@ const summary = buildSummary();
 console.log(`全量通过率：${fmtPct(summary.totals.pass_rate)}（${summary.totals.passed}/${summary.totals.total}），失败 ${summary.totals.failed}，未执行 ${summary.totals.not_run}`);
 console.log(`页面穿透：页面 ${summary.page_first.frontend_cases} / 关联 ${summary.page_first.via_page} / 不可达说明 ${summary.page_first.unreachable} / 未分类 ${summary.page_first.unclassified}`);
 console.log(`落库校验：写数据 ${summary.data_check.mutating_cases} / 已校验 ${summary.data_check.verified} / 未校验 ${summary.data_check.unverified}`);
+console.log(`设计元数据：${summary.design_check.metadata_cases}/${summary.design_check.total_cases} 条 · 操作步骤 ${summary.design_check.operation_steps_cases} 条 · 元数据错误 ${summary.design_check.violations.length} 条`);
 console.log(`报告：${path.join(roundDir, 'index.html')}`);

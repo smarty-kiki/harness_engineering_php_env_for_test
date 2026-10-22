@@ -103,8 +103,9 @@ coverage-trend --plan /var/www/test_usecase/reports/rounds/<轮次>/next-round-p
 - **数据落库校验**：凡会写数据的用例（新增、修改、删除、状态流转，以及应被拒绝的写入请求）标记 `mutates_data: true`，并提供非空 `db_verification`。可以写说明字符串、检查项数组，或 `{ checks: [...], detail, actual, passed }` 对象。
 - 校验要发生在页面 / 接口操作之后，直接查询数据库确认字段值、行数和软删除状态；**不能只看页面提示或接口返回成功**。被拒绝的写入要确认数据库没有新增或改动。
 - 页面流程、接口测试、CLI 测试都使用同一约定；`fixtures/db_check.php` 是通用查询工具。
+- **设计元数据（可选，推荐）**：`case_id`（全局唯一）、`design_method`（设计方法）、`test_unit`（最小测试单元）、`test_point`（必须以「设计方法-」开头）、`case_kind`（`positive` / `negative`）、`operation_steps`（操作步骤文本，报告与 8080 都会展示）。提供 `design_method` 时必须同时提供 `test_unit`、`test_point` 与 `operation_steps`；同一测试单元建议先有正向用例再补负向。
 
-两项审计在 `run-all.sh` 中默认严格（`AUDIT_STRICT=1`）；迁移旧用例时可设 `AUDIT_STRICT=0`，或用 `PAGE_FIRST_STRICT=1` / `DATA_CHECK_STRICT=1` 单独控制。
+三项审计在 `run-all.sh` 中默认严格（`AUDIT_STRICT=1`）；迁移旧用例时可设 `AUDIT_STRICT=0`，或用 `PAGE_FIRST_STRICT=1` / `DATA_CHECK_STRICT=1` / `DESIGN_STRICT=1` 单独控制。
 
 ## 运行
 
@@ -125,8 +126,8 @@ export PRJ_HOME=/var/www/your-project
 - `TEST_SUITE_DIR`：平台目录，默认脚本所在目录
 - `ROUND_ID` / `NEW_ROUND`：复用指定轮次 / 强制新建
 - `HEADLESS=1`：前端无头运行；默认有头，便于实时画面观察
-- `AUDIT_STRICT`：默认 1，页面穿透与落库校验未通过时本轮失败
-- `PAGE_FIRST_STRICT` / `DATA_CHECK_STRICT`：单独覆盖两项审计
+- `AUDIT_STRICT`：默认 1，页面穿透、落库校验或用例设计元数据未通过时本轮失败
+- `PAGE_FIRST_STRICT` / `DATA_CHECK_STRICT` / `DESIGN_STRICT`：单独覆盖三项审计；未填写设计元数据的旧用例不会被判错
 - `REQUIRE_PAGE_FIRST=1`：旧版页面穿透严格开关的别名
 
 每轮流程：

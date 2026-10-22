@@ -45,14 +45,16 @@ round-status finish --id=<轮次> --summary=<summary.json> --report-dir=<round_d
 - **JS**：本轮全部 Playwright 页面流程合并后的 V8 覆盖率，用 `frontend-coverage-report --round <轮次>` 统计；单次运行报告仍可用 `--run` 单独查看，但轮次报告与迭代判断使用合并结果。
 - 轮次之间不累计（PHP 在每轮开始时 reset），否则无法判断这一轮补测是否有效。
 
-### 页面优先与落库校验
+### 页面优先、落库校验与用例设计元数据
 
 一轮的用例必须满足两条硬约束，报告会单独审计：
 
 1. **页面优先**：同一行为先写页面用例；接口 / CLI 只补页面不可达或难以稳定触发的分支。接口 / CLI 用例要么写 `via_page`（对应页面用例名），要么写 `unreachable_reason`（页面不可达原因）。
 2. **写数据必查库**：凡会写数据的用例（新增、修改、删除、状态流转，以及应被拒绝的写入请求），标记 `mutates_data: true`，并在 `db_verification` 记录数据库中的实际结果。仅页面提示或接口返回成功不算通过；被拒绝的请求要确认数据库没有多出数据。
 
-字段与报告契约见 `round-report.md`。`run-all.sh` 默认开启两项审计（`AUDIT_STRICT=1`），未通过会让本轮失败；单独跑 `round-report` 时用 `--strict-page-first` / `--strict-data-check`，或设置 `PAGE_FIRST_STRICT=1` / `DATA_CHECK_STRICT=1`。
+第三条是**可选的用例设计元数据**（推荐新用例填写）：`case_id`、`design_method`、`test_unit`、`test_point`、`case_kind`、`operation_steps`。`case-design.js` 校验设计方法是否合法、`test_point` 是否以「设计方法-」开头、提供 `design_method` 时是否带齐测试单元与操作步骤、`case_id` 是否重复，并统计设计方法分布、各测试单元的正向 / 负向用例。未填写元数据的旧用例保持兼容，不参与强校验。
+
+字段与报告契约见 `round-report.md`。`run-all.sh` 默认开启三项审计（`AUDIT_STRICT=1`），未通过会让本轮失败；单独跑 `round-report` 时用 `--strict-page-first` / `--strict-data-check` / `--strict-design`，或设置 `PAGE_FIRST_STRICT=1` / `DATA_CHECK_STRICT=1` / `DESIGN_STRICT=1`。只想迁移旧用例、暂不补设计元数据时，可单独设 `DESIGN_STRICT=0`。
 
 页面流程里可以用通用查询工具核对落库：
 

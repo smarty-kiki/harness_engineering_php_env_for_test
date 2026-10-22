@@ -26,9 +26,10 @@
 #   ROUND_ID                 复用指定轮次（可选；默认复用 active，或新建）
 #   NEW_ROUND=1              忽略 active，强制新建一轮
 #   HEADLESS=1               无头运行前端流程；默认有头，便于 8080 实时画面观察
-#   AUDIT_STRICT             默认 1：页面穿透 / 数据落库校验不通过时本轮失败；0 可放宽
+#   AUDIT_STRICT             默认 1：页面穿透 / 数据落库 / 设计元数据校验不通过时本轮失败；0 可放宽
 #   PAGE_FIRST_STRICT        单独覆盖页面穿透审计（1 严格，0 放宽）
 #   DATA_CHECK_STRICT        单独覆盖落库校验（1 严格，0 放宽）
+#   DESIGN_STRICT            单独覆盖用例设计元数据校验（1 严格，0 放宽）
 #   REQUIRE_PAGE_FIRST=1     PAGE_FIRST_STRICT 的旧别名
 #
 # 产物：
@@ -50,6 +51,7 @@ BASE_URL=${BASE_URL:-http://127.0.0.1}
 AUDIT_STRICT=${AUDIT_STRICT:-1}
 PAGE_FIRST_STRICT=${PAGE_FIRST_STRICT:-$AUDIT_STRICT}
 DATA_CHECK_STRICT=${DATA_CHECK_STRICT:-$AUDIT_STRICT}
+DESIGN_STRICT=${DESIGN_STRICT:-$AUDIT_STRICT}
 if [ "${REQUIRE_PAGE_FIRST:-0}" = "1" ]; then PAGE_FIRST_STRICT=1; fi
 COVERAGE_DIR=${HARNESS_COVERAGE_DIR:-/var/log/harness-coverage}
 TEST_TAG=${TEST_TAG:-}
@@ -327,6 +329,9 @@ fi
 if [ "$DATA_CHECK_STRICT" = "1" ]; then
     REPORT_ARGS+=(--strict-data-check)
 fi
+if [ "$DESIGN_STRICT" = "1" ]; then
+    REPORT_ARGS+=(--strict-design)
+fi
 
 if command -v round-report >/dev/null 2>&1; then
     round-report "${REPORT_ARGS[@]}"
@@ -398,6 +403,9 @@ console.log(`覆盖率：PHP ${summary.coverage.php_business ? summary.coverage.
 if (summary.page_first) {
     console.log(`页面穿透：页面用例 ${summary.page_first.frontend_cases}，API/CLI ${summary.page_first.api_cli_cases}，已关联页面 ${summary.page_first.via_page}，不可达说明 ${summary.page_first.unreachable}，未分类 ${summary.page_first.unclassified}`);
 }
+if (summary.design_check) {
+    console.log(`设计元数据：带元数据 ${summary.design_check.metadata_cases}/${summary.design_check.total_cases}，操作步骤 ${summary.design_check.operation_steps_cases}，元数据错误 ${summary.design_check.violations.length}`);
+}
 console.log(`轮次报告：http://127.0.0.1:8080/rounds/${summary.round_id}/report/index.html`);
 NODE
 
@@ -424,6 +432,14 @@ if [ "$DATA_CHECK_STRICT" = "1" ]; then
     DATA_CHECK_UNVERIFIED=$(node -e "const s=require('$ROUND_DIR/summary.json');console.log(s.data_check ? s.data_check.unverified : 0)" 2>/dev/null || echo 0)
     if [ "$DATA_CHECK_UNVERIFIED" != "0" ]; then
         echo "数据落库校验未通过：${DATA_CHECK_UNVERIFIED} 条写数据用例缺少 db_verification"
+        exit 1
+    fi
+fi
+
+if [ "$DESIGN_STRICT" = "1" ]; then
+    DESIGN_ERRORS=$(node -e "const s=require('$ROUND_DIR/summary.json');console.log(s.design_check && Array.isArray(s.design_check.violations) ? s.design_check.violations.length : 0)" 2>/dev/null || echo 0)
+    if [ "$DESIGN_ERRORS" != "0" ]; then
+        echo "用例设计元数据校验未通过：${DESIGN_ERRORS} 条元数据错误"
         exit 1
     fi
 fi

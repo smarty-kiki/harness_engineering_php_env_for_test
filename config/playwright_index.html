@@ -627,7 +627,7 @@
             var state = layer.state || 'pending';
             var failed = numberValue(layer.failed) || 0;
             return '<span class="layer-chip ' + esc(state) + '" title="' + esc(LAYER_STATES[state] || state) + '">'
-                + esc(layer.name || LAYER_LABELS[key])
+                + esc((layer.name || LAYER_LABELS[key]) + '用例')
                 + ' <strong>' + esc(layerCountText(layer)) + '</strong>'
                 + (failed ? '<em>失败 ' + failed + '</em>' : '')
                 + '</span>';
@@ -675,6 +675,15 @@
             badges.push(dataCheck.unverified > 0
                 ? '<span class="badge warn">落库未校验 ' + dataCheck.unverified + '</span>'
                 : '<span class="badge ok">落库校验通过</span>');
+        }
+
+        var designCheck = status.design_check;
+        if (designCheck) {
+            if (designCheck.violations && designCheck.violations.length) {
+                badges.push('<span class="badge warn">设计元数据异常 ' + designCheck.violations.length + '</span>');
+            } else if (designCheck.metadata_cases > 0) {
+                badges.push('<span class="badge ok">设计元数据通过</span>');
+            }
         }
 
         return badges;
@@ -778,6 +787,19 @@
                 notes.push('<span class="case-failure">' + esc([expected, actual].filter(Boolean).join(' · ').slice(0, 600)) + '</span>');
             }
 
+            var designNotes = [];
+
+            if (item.case_id) { designNotes.push('编号：' + item.case_id); }
+            if (item.design_method) { designNotes.push('设计方法：' + item.design_method); }
+            if (item.test_unit) { designNotes.push('测试单元：' + item.test_unit); }
+            if (item.test_point) { designNotes.push('测试点：' + item.test_point); }
+
+            if (designNotes.length) {
+                notes.push('<span class="case-note">' + esc(designNotes.join(' · ')) + '</span>');
+            }
+
+            notes.push('<span class="case-note">操作步骤：' + esc(item.operation_steps || '历史用例未记录') + '</span>');
+
             if (item.via_page) {
                 notes.push('<span class="case-note">穿透页面：' + esc(item.via_page) + '</span>');
             } else if (item.unreachable_reason) {
@@ -814,7 +836,7 @@
         ['frontend', 'api', 'cli'].forEach(function (key) {
             var layer = (layers && layers[key]) || {};
             var cases = Array.isArray(layer.cases) ? layer.cases : [];
-            var title = esc(layer.name || LAYER_LABELS[key]) + ' '
+            var title = esc((layer.name || LAYER_LABELS[key]) + '用例') + ' '
                 + esc(layerCountText(layer))
                 + (layer.failed ? ' · 失败 ' + numberValue(layer.failed) : '')
                 + (layer.not_run ? ' · 未执行 ' + numberValue(layer.not_run) : '')
@@ -866,6 +888,33 @@
                 }).join('') + '</ul>';
             } else {
                 html += '<div class="ok-text">全部已标记为写数据的用例都记录了数据库落库校验。</div>';
+            }
+
+            html += '</div>';
+        }
+
+        var designCheck = status.design_check;
+
+        if (designCheck) {
+            var methods = designCheck.method_counts || {};
+            var methodText = Object.keys(methods).map(function (key) { return key + ' ' + methods[key]; }).join(' · ') || '暂无';
+            html += '<div class="run-issues"><strong>用例设计元数据</strong>'
+                + ' 带元数据 ' + designCheck.metadata_cases + ' / ' + designCheck.total_cases
+                + ' · 带操作步骤 ' + designCheck.operation_steps_cases
+                + ' · 设计方法 ' + esc(methodText);
+
+            if (designCheck.violations && designCheck.violations.length) {
+                html += '<ul>' + designCheck.violations.slice(0, 30).map(function (item) {
+                    return '<li>[' + esc(item.layer) + '] ' + esc(item.name) + ' — ' + esc(item.reason) + '</li>';
+                }).join('') + '</ul>';
+            } else {
+                html += '<div class="ok-text">已提供的设计元数据自洽。</div>';
+            }
+
+            if (designCheck.units_without_positive && designCheck.units_without_positive.length) {
+                html += '<div class="run-note">只有负向用例的测试单元：'
+                    + esc(designCheck.units_without_positive.slice(0, 20).map(function (unit) { return unit.test_unit; }).join('、'))
+                    + '</div>';
             }
 
             html += '</div>';
@@ -968,7 +1017,8 @@
                     coverage_scope: summary.coverage_scope,
                     coverage_delta: summary.coverage_delta,
                     page_first: summary.page_first,
-                    data_check: summary.data_check
+                    data_check: summary.data_check,
+                    design_check: summary.design_check
                 },
                 runs: [item.run],
                 meta: meta

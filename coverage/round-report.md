@@ -66,6 +66,12 @@ summary.json / summary.md / index.html
   "duration_ms": 32,
   "expected": "项目创建成功且数据库存在记录",
   "actual": "接口返回成功，数据库记录字段正确",
+  "operation_steps": "1、提交创建项目请求；2、查询 project 表；3、核对名称与状态",
+  "case_id": "PMS-项目-001",
+  "design_method": "场景检查",
+  "test_unit": "创建项目按钮",
+  "test_point": "场景检查-合法名称创建项目并落库",
+  "case_kind": "positive",
   "via_page": "页面：创建项目",
   "mutates_data": true,
   "db_verification": {
@@ -80,6 +86,7 @@ summary.json / summary.md / index.html
 - `status`：`passed` / `failed` / `not_run`；失败和未执行必须写 `expected` 与 `actual`。
 - **页面优先**：接口 / CLI 用例二选一写 `via_page`（页面用例名，必须能在本轮前端用例中找到）或 `unreachable_reason`（页面不可达的具体原因）。
 - **落库校验**：任何写数据的用例（新增、修改、删除、状态流转，以及应被拒绝的写入）写 `mutates_data: true`，并提供非空的 `db_verification`。可以是说明字符串、检查项数组，或 `{ checks: [...], detail, actual, passed }` 对象；仅接口返回成功不算校验。
+- **设计元数据（可选，推荐）**：`case_id`、`design_method`、`test_unit`、`test_point`、`case_kind`、`operation_steps`。提供 `design_method` 时，报告会校验方法是否合法、`test_point` 是否以「设计方法-」开头、是否同时给出 `test_unit` 与 `operation_steps`，并统计各设计方法、各测试单元的正向 / 负向用例与只有负向用例的测试单元。未提供元数据的旧用例保持兼容。
 - 前端 `frontend-cases.json` 由流程在完成页面操作与数据库校验后写入；接口 / CLI 测试同理。
 
 ## 3. 生成、发布与归档
@@ -104,7 +111,7 @@ round-status start --name=<名称> --suite-dir=/var/www/test_usecase   # 写用�
 # 1. 生成报告（round_dir 是工作目录；run_dir 可选）
 round-report /tmp/my-round /var/log/harness-coverage/playwright/runs/<run_id>
 
-# 2. 发布摘要（趋势工具与 8080 读取），需要严格审计就加 --strict-page-first / --strict-data-check
+# 2. 发布摘要（趋势工具与 8080 读取），需要严格审计就加 --strict-page-first / --strict-data-check / --strict-design
 round-status publish --id=<轮次> --summary=/tmp/my-round/summary.json
 
 # 3. 生成下一轮计划
@@ -120,7 +127,7 @@ round-status finish --id=<轮次> --summary=/tmp/my-round/summary.json \
 
 - `finish` 会整体同步 `--report-dir` 到 `/var/log/harness-coverage/rounds/<轮次>/report/`，包括覆盖率 HTML、未覆盖行与补测计划；重新归档会替换旧报告，不会覆盖其他轮次。
 - `publish` 只同步，不改变轮次状态，适合在趋势分析前先写入摘要。
-- 严格审计：`run-all` 默认 `AUDIT_STRICT=1`；单独执行 `round-report` 时用 `--strict-page-first` 与 `--strict-data-check`（或 `PAGE_FIRST_STRICT=1` / `DATA_CHECK_STRICT=1`）。未通过时报告仍会生成，但退出码为 1，`run-all` 最终失败。
+- 严格审计：`run-all` 默认 `AUDIT_STRICT=1`；单独执行 `round-report` 时用 `--strict-page-first`、`--strict-data-check` 与 `--strict-design`（或 `PAGE_FIRST_STRICT=1` / `DATA_CHECK_STRICT=1` / `DESIGN_STRICT=1`）。未通过时报告仍会生成，但退出码为 1，`run-all` 最终失败。
 - 兼容旧观测台：`run-all` 仍会把报告复制到 Playwright 运行目录的 `round/`（约定目录）。轮次注册目录才是 8080 与趋势工具的权威来源；没有 `round/` 不影响轮次展示。
 - `summary.json` 必须能通过 `JSON.parse`；发布前可用 `node -e "JSON.parse(require('fs').readFileSync('...','utf8'))"` 校验。
 
@@ -238,7 +245,9 @@ round-status finish --id=<轮次> --summary=/tmp/my-round/summary.json \
 
 **轮次从编写用例阶段就存在**：执行 `round-status start` 后，即使还没跑任何测试，8080 也会出现「编写用例中」的卡片；执行 `run-all` 后状态、分层计数、覆盖率和当前步骤持续更新，直到 `done` / `failed`。不需要等报告生成完才看到记录。
 
-打开「用例」时按 `前端 / 接口 / CLI` 分组展示：失败或未执行项显示期望 / 实际；接口 / CLI 用例显示 `via_page` 或不可达原因；写数据用例显示「落库已校验 / 未校验」。旧运行目录没有 `summary.json` 时，回退为 `meta.json` 的前端步骤与前端覆盖率，不显示全量用例按钮。
+打开「用例」时按 `前端 / 接口 / CLI` 分组展示：每条用例显示操作步骤，有设计元数据的显示编号 / 设计方法 / 测试单元 / 测试点；失败或未执行项显示期望 / 实际；接口 / CLI 用例显示 `via_page` 或不可达原因；写数据用例显示「落库已校验 / 未校验」，设计元数据异常单独提示。旧运行目录没有 `summary.json` 时，回退为 `meta.json` 的前端步骤与前端覆盖率，不显示全量用例按钮。
+
+**统计口径**：卡片上的「前端用例 134/137」「接口用例 50/52」等分层计数，分子是通过的**用例数**、分母是本层用例总数；一条用例内部的多条断言 / 检查点不单独计数，也不进入通过率分母。一条 `runCase` / 一个结果对象就是一条用例。
 
 ## 6. 通用测试平台与项目测试
 

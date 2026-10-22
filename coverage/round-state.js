@@ -171,6 +171,8 @@ function normalizeStatus(status) {
     coverage_delta: null,
     next_round_suggestions: null,
     page_first: null,
+    data_check: null,
+    design_check: null,
     totals: null,
     summary_path: '',
     report_url: '',
@@ -359,6 +361,7 @@ function finishRound(roundId, options = {}) {
     patch.coverage = summary.coverage || null;
     patch.page_first = summary.page_first || null;
     patch.data_check = summary.data_check || null;
+    patch.design_check = summary.design_check || null;
     patch.coverage_scope = summary.coverage_scope || { php: 'round', js: 'round' };
     patch.coverage_delta = summary.coverage_delta || null;
     patch.next_round_suggestions = summary.next_round_suggestions || null;

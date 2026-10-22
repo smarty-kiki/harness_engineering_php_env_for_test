@@ -114,6 +114,7 @@ COPY --chmod=755 ./shell/coverage-report ./shell/coverage-reset ./shell/frontend
 # 覆盖率指南、轮次注册、实时状态、趋势分析与全量报告
 COPY ./coverage/README.md ./coverage/round-report.md \
      ./coverage/round-state.js ./coverage/round-status.js ./coverage/coverage-trend.js ./coverage/round-report.js \
+     ./coverage/case-design.js \
      /usr/local/share/harness/coverage/
 
 # 通用综合测试平台骨架：目录结构、单轮编排与通用破坏性工具。
