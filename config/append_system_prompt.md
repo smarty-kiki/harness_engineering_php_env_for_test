@@ -19,7 +19,7 @@ Kafka 控制器日志：/var/log/kafka/controller.log
 <!-- /kafka -->
 cda 日志：/tmp/chrome/supervisor-\*.log  
 
-cda 是一个允许你操作浏览器来访问页面、测试页面的工具，**交互式页面访问和测试优先使用 cda**，完后把访问和测试过程中你自己打开的页面关掉，**原本就存在的页面不要去关**，当 cda 中没有浏览器在线时才用 curl 命令做临时替代。工具说明：/var/www/chrome_do_action/cli/help.md  
+cda 是一个允许你操作浏览器来访问页面、测试页面的工具，**交互式页面访问优先使用 cda**，完后把访问过程中你自己打开的页面关掉，**原本就存在的页面不要去关**，当 cda 中没有浏览器在线时才用 curl 命令做临时替代。工具说明：/var/www/chrome_do_action/cli/help.md  
 **需要自动化前端流程、截图、录像、trace 或前端覆盖率时用 playwright-run**（见下方覆盖率说明），只有接口 API 访问和测试才用 curl 命令来测试  
 
 ## 黑盒测试（轮次 / 覆盖率 / 8080）
@@ -37,13 +37,19 @@ cda 是一个允许你操作浏览器来访问页面、测试页面的工具，*
 最短流程：
 
 1. 登记轮次（可传上一轮的 `next-round-plan.md` 作为 `--plan`），然后写三类用例。
-2. 执行 `/var/www/test_usecase/run-all.sh`，它自动生成本轮报告、趋势和下一轮计划。
+2. 执行 `/var/www/test_usecase/run-all.sh`：它负责准备 / 清理 / 造数、自动 `coverage-reset`、执行前端 / 接口 / CLI 用例、生成本轮报告、趋势和下一轮计划，最后归档轮次。
 3. 查看报告中的未覆盖行与 `coverage-trend`，按计划补下一轮；连续 2 轮 PHP 业务口径与 JS 覆盖率增量都小于 0.5 个百分点，或未覆盖行已没有可通过现有入口触达的代码时停止。
 4. 需要单独跑页面流程时用 `playwright-run <flow.js>`，查看某轮合并的 JS 覆盖率用 `frontend-coverage-report --round <轮次>`。
 
-观测入口在 8080（容器需映射 `-p 8080:8080`）：`/` 观测台（轮次从编写用例阶段就显示，执行中每 3 秒刷新；每轮含分层进度、页面穿透与落库审计、Trace、完整覆盖率报告）、`/live` 只读实时画面、`/rounds/` 轮次归档、`/artifacts/` 产物（含 trace.zip、录像、截图）、`/js-coverage/` 最近一次运行的前端覆盖率、`/php-coverage/` 后端 HTML 报告、`/reports/` 前后端覆盖率总览、`/trace/` Trace Viewer。
+手动补测与排查时：
 
-测试设计（接口不可用、底层数据删除、输入格式 / 长度 / 数量边界、命令回滚、组合场景）先读 `/usr/local/share/harness/test_usecase/TEST_DESIGN.md`；报告输入、`summary.json` 契约、审计规则与发布方式见 `/usr/local/share/harness/coverage/round-report.md`。具体项目的用例、造数与清理脚本放运行期目录或项目挂载目录，**不要提交进 harness 仓库**。
+- PHP：`coverage-reset` → 通过 cda / curl / bash 测试 → `coverage-report`；需要在浏览器查看时执行 `coverage-report --html` 发布到 8080 的 `/php-coverage/`。后端覆盖率累计到下一次 `coverage-reset`；`coverage-reset` 只清 PHP 采集事件，不删除已生成的 trace、录像和前端报告。
+- 前端：复制 `/usr/local/share/harness/playwright/flow-example.js` 写流程 → `playwright-run <flow.js>`；`frontend-coverage-report --run <运行目录>` 只用于调试，轮次判断用 `--round <轮次>` 的合并结果。
+- 轮次报告：`round-report <round_dir> [<playwright_run_dir>]` 可手动生成；`run-all` 会自动调用并归档到 `/var/log/harness-coverage/rounds/<轮次>/`。报告工作目录是 `/var/www/test_usecase/reports/rounds/<轮次>/`，运行期 `state/`、`reports/` 不持久化；兼容旧观测台仍会复制一份到 Playwright 运行目录的 `round/`。
+
+观测入口在 8080（容器需映射 `-p 8080:8080`）：`/` 观测台（轮次从编写用例阶段就显示，执行中每 3 秒刷新；每轮含分层进度、页面穿透与落库审计、Trace、完整覆盖率报告）、`/live` 只读实时画面、`/rounds/` 轮次归档、`/artifacts/` 产物（含 trace.zip、录像、截图）、`/js-coverage/` 最近一次运行的前端覆盖率、`/php-coverage/` 最近一次 `coverage-report --html` 的快照、`/reports/` 前后端覆盖率总览（同一页切换）、`/trace/` Trace Viewer。
+
+harness 在 `/var/www/test_usecase` 提供通用测试平台骨架（入口 `run-all.sh`，含通用破坏性工具）；具体项目的用例、造数与清理脚本放运行期目录或项目挂载目录。测试设计（接口不可用、底层数据删除、输入格式 / 长度 / 数量边界、命令回滚、组合场景）先读 `/usr/local/share/harness/test_usecase/TEST_DESIGN.md`；按入口分层设计、按边界清单列用例，破坏性用例同样计入通过率，覆盖率不能作为唯一锚点。报告输入、`summary.json` 契约、审计规则与发布方式见 `/usr/local/share/harness/coverage/round-report.md`。
 
 <!-- clickhouse -->
 

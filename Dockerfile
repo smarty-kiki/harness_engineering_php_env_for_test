@@ -123,9 +123,7 @@ COPY ./test_usecase/ /var/www/test_usecase/
 RUN chmod +x /var/www/test_usecase/run-all.sh && \
     mkdir -p /usr/local/share/harness/test_usecase && \
     cp /var/www/test_usecase/TEST_DESIGN.md /usr/local/share/harness/test_usecase/TEST_DESIGN.md
-# 8080 的覆盖率总览页：同一页切换前端 / 后端报告
 COPY ./config/coverage_reports.html /usr/local/share/harness/coverage/reports/index.html
-# 8080 根地址的观测入口目录页：集中列出实时画面、运行产物、覆盖率与 Trace Viewer
 COPY ./config/playwright_index.html /usr/local/share/harness/coverage/index.html
 
 COPY ./config/bashrc /root/.bashrc
@@ -135,8 +133,6 @@ COPY ./config/tmux.conf /root/.tmux.conf
 RUN mkdir -p /root/.tmuxinator
 COPY ./config/tmuxinator_init.yml /root/.tmuxinator/init.yml
 
-# cda：交互式页面查看工具（宿主机浏览器）。前端自动化测试与覆盖率由 Playwright 负责，
-# 不再使用测试专属版扩展，也不再需要 cda 侧的覆盖率采集。
 RUN git clone https://github.com/smarty-kiki/chrome_do_action.git /var/www/chrome_do_action
 RUN cd /var/www/chrome_do_action/server && npm install && npm run build
 RUN cd /var/www/chrome_do_action/cli && npm install && npm run build && npm link
