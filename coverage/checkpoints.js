@@ -70,11 +70,14 @@ function caseCheckpoints(item) {
           : (dbVerification.passed === false ? 'failed' : 'passed');
       }
 
+      const expectText = text(raw.expect || raw.expected);
+      const table = text(raw.table);
+
       checkpoints.push({
-        name: text(raw.name) || `落库检查 ${index + 1}`,
+        name: text(raw.name) || (expectText ? (table ? table + '：' : '') + expectText : `落库检查 ${index + 1}`),
         status,
         source: 'db_verification',
-        expected: text(raw.expect || raw.expected),
+        expected: expectText,
         actual: text(raw.actual),
       });
     });

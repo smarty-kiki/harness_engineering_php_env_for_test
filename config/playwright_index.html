@@ -708,7 +708,8 @@
     }
 
     .case-failure { color: var(--err); }
-    .case-checkpoint-fail { color: var(--err); }
+    .case-checkpoint.fail { color: var(--err); }
+    .case-checkpoint.skip { color: var(--warn); }
     .case-note { color: var(--muted); }
     .case-note.err { color: var(--err); }
     .case-note.ok { color: var(--ok); }
@@ -1203,6 +1204,52 @@
         return stats;
     }
 
+    function caseCheckpointList(item) {
+        var list = [];
+        var explicit = Array.isArray(item.checkpoints) ? item.checkpoints : [];
+
+        if (explicit.length) {
+            explicit.forEach(function (checkpoint, index) {
+                var status = checkpoint && checkpoint.status;
+
+                if (status !== 'passed' && status !== 'failed' && status !== 'not_run') {
+                    status = 'failed';
+                }
+
+                list.push({
+                    name: (checkpoint && checkpoint.name) || '检查点 ' + (index + 1),
+                    status: status
+                });
+            });
+            return list;
+        }
+
+        list.push({ name: '整体结果', status: item.status });
+
+        var db = item.db_verification;
+        if (db && Array.isArray(db.checks)) {
+            db.checks.forEach(function (checkpoint, index) {
+                var status = checkpoint && checkpoint.status;
+
+                if (!status) {
+                    status = item.status === 'not_run'
+                        ? 'not_run'
+                        : (db.passed === false ? 'failed' : 'passed');
+                }
+
+                var name = checkpoint && checkpoint.name;
+
+                if (!name && checkpoint && checkpoint.expect) {
+                    name = (checkpoint.table ? checkpoint.table + '：' : '') + checkpoint.expect;
+                }
+
+                list.push({ name: name || '落库检查 ' + (index + 1), status: status });
+            });
+        }
+
+        return list;
+    }
+
     function checkpointStatsOf(cases) {
         var stats = { total: 0, tested: 0, passed: 0, failed: 0, not_run: 0 };
 
@@ -1256,34 +1303,17 @@
                 notes.push('<span class="case-note">' + esc(designNotes.join(' · ')) + '</span>');
             }
 
-            var caseCheckpoints = caseCheckpointStats(item);
-            var checkpointNote = '';
-
-            if ((Array.isArray(item.checkpoints) && item.checkpoints.length) || caseCheckpoints.total > 1 || failed || notRun) {
-                checkpointNote = '<span class="case-note">检查点：' + caseCheckpoints.passed + '/' + caseCheckpoints.total + ' 通过';
-
-                if (caseCheckpoints.failed) {
-                    checkpointNote += '<span class="case-checkpoint-fail">，未通过 ' + caseCheckpoints.failed;
-
-                    if (caseCheckpoints.failed_names.length) {
-                        checkpointNote += '（' + esc(caseCheckpoints.failed_names.slice(0, 3).join('、'))
-                            + (caseCheckpoints.failed_names.length > 3 ? ' 等' : '') + '）';
-                    }
-
-                    checkpointNote += '</span>';
-                }
-
-                if (caseCheckpoints.not_run) { checkpointNote += '，未测 ' + caseCheckpoints.not_run; }
-                checkpointNote += '</span>';
-            }
-
             notes.push('<span class="case-note">操作步骤：' + esc(item.operation_steps || '历史用例未记录') + '</span>');
 
             if (failed || notRun) {
                 if (item.expected) { notes.push('<span class="case-failure">期望：' + esc(item.expected) + '</span>'); }
             }
 
-            if (checkpointNote) { notes.push(checkpointNote); }
+            caseCheckpointList(item).forEach(function (checkpoint) {
+                var status = checkpoint.status === 'passed' ? '通过' : checkpoint.status === 'failed' ? '未通过' : '未测试';
+                var cls = checkpoint.status === 'failed' ? ' fail' : (checkpoint.status === 'not_run' ? ' skip' : '');
+                notes.push('<span class="case-note case-checkpoint' + cls + '">检查点：' + esc(checkpoint.name) + ' · ' + status + '</span>');
+            });
 
             if (failed || notRun) {
                 if (item.actual) { notes.push('<span class="case-failure">实际：' + esc(item.actual.slice(0, 600)) + '</span>'); }

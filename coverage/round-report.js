@@ -454,9 +454,6 @@ function renderReportCaseItem(item, system, module) {
   const status = item.status === 'passed' ? 'ok' : item.status === 'failed' ? 'err' : 'warn';
   const statusText = item.status === 'passed' ? '通过' : item.status === 'failed' ? '失败' : '未执行';
   const checkpoints = caseCheckpoints(item);
-  const passedChecks = checkpoints.filter((checkpoint) => checkpoint.status === 'passed');
-  const failedChecks = checkpoints.filter((checkpoint) => checkpoint.status === 'failed');
-  const notRunChecks = checkpoints.filter((checkpoint) => checkpoint.status === 'not_run');
   const notes = [];
 
   if (item.via_page) notes.push('穿透页面：' + item.via_page);
@@ -471,16 +468,13 @@ function renderReportCaseItem(item, system, module) {
   if (item.test_unit) design.push('测试单元 ' + item.test_unit);
   if (item.test_point) design.push('测试点 ' + item.test_point);
 
-  let checkpointHtml = '';
+  const checkpointLines = checkpoints.map((checkpoint) => {
+    const name = checkpoint.source === 'case' ? '整体结果' : checkpoint.name;
+    const statusText = checkpoint.status === 'passed' ? '通过' : checkpoint.status === 'failed' ? '未通过' : '未测试';
+    const extraClass = checkpoint.status === 'failed' ? ' fail' : (checkpoint.status === 'not_run' ? ' skip' : '');
 
-  if (checkpoints.length) {
-    checkpointHtml = `<p class="report-case-checkpoint">检查点 ${passedChecks.length}/${checkpoints.length} 通过`
-      + (failedChecks.length
-        ? `<span class="report-case-checkpoint-fail">，未通过 ${failedChecks.length}（${esc(failedChecks.map((checkpoint) => checkpoint.name).join('、'))}）</span>`
-        : '')
-      + (notRunChecks.length ? `，未测试 ${notRunChecks.length}` : '')
-      + '</p>';
-  }
+    return `<p class="report-case-checkpoint${extraClass}">检查点：${esc(name)} · ${statusText}</p>`;
+  }).join('');
 
   return `<li class="report-case" data-case-system="${esc(system.key)}" data-case-module="${esc(module.key)}">
       <div class="report-case-head">
@@ -491,7 +485,7 @@ function renderReportCaseItem(item, system, module) {
       ${design.length ? `<p class="report-case-design">${esc(design.join(' · '))}</p>` : ''}
       <p class="report-case-steps">操作步骤：${esc(item.operation_steps || '历史用例未记录')}</p>
       ${item.status !== 'passed' ? `<p class="report-case-expected">期望：${esc(item.expected || '—')}</p>` : ''}
-      ${checkpointHtml}
+      ${checkpointLines}
       ${item.status !== 'passed' ? `<p class="report-case-actual">实际：${esc(item.actual || '—')}</p>` : ''}
       ${notes.length ? `<p class="report-case-note">${esc(notes.join(' · '))}</p>` : ''}
     </li>`;
@@ -699,7 +693,8 @@ function renderHtml(summary) {
     .report-case-tags { color:var(--muted); font-size:11.5px; }
     .report-case-design, .report-case-note, .report-case-steps, .report-case-expected, .report-case-actual, .report-case-checkpoint { margin:4px 0 0; color:var(--muted); font-size:12px; line-height:1.55; word-break:break-word; }
     .report-case-expected, .report-case-actual { color:var(--err); }
-    .report-case-checkpoint-fail { color:var(--err); }
+    .report-case-checkpoint.fail { color:var(--err); }
+    .report-case-checkpoint.skip { color:var(--warn); }
     @media (max-width:760px) { .wrap{padding:20px 12px 36px;} .expected,.actual{min-width:160px;} .report-case-browser{grid-template-columns:1fr;} .report-case-sidebar{max-height:220px;} .report-case-list{max-height:none;} }
 </style>
 </head>
