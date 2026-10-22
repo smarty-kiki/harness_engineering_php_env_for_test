@@ -64,8 +64,13 @@ RUN chmod +x /etc/init.d/clickhouse-server
 # procps 是 kafka-server-stop.sh 找进程要用的。pecl 与编译工具链由上面的 php8.4-dev 带出来
 ARG KAFKA_VERSION=4.1.2
 ARG KAFKA_SCALA_VERSION=2.13
+ARG RDKAFKA_VERSION=6.0.5
+# pecl 的 REST 元数据接口在部分网络下不可用（报 Package rdkafka does not have REST info xml available），
+# 直接下载固定版本的 tarball 安装，绕过包元数据查询。
 RUN apt-get install -y librdkafka-dev default-jre-headless kcat procps && \
-    printf '\n\n\n\n\n' | pecl install rdkafka && \
+    curl -fsSL "https://pecl.php.net/get/rdkafka-${RDKAFKA_VERSION}.tgz" -o /tmp/rdkafka.tgz && \
+    pecl install /tmp/rdkafka.tgz && \
+    rm -f /tmp/rdkafka.tgz && \
     echo "extension=rdkafka.so" > /etc/php/8.4/mods-available/rdkafka.ini && \
     phpenmod -v 8.4 rdkafka && \
     curl -fsSL "https://mirrors.aliyun.com/apache/kafka/${KAFKA_VERSION}/kafka_${KAFKA_SCALA_VERSION}-${KAFKA_VERSION}.tgz" -o /tmp/kafka.tgz && \
