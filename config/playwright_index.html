@@ -1053,21 +1053,6 @@
             + pctText(totals.pass_rate) + '（' + totals.passed + '/' + totals.total + '）</span>';
     }
 
-    function checkpointBadge(status) {
-        var checkpoints = status && status.checkpoints;
-
-        if (!checkpoints || !numberValue(checkpoints.total)) { return ''; }
-
-        return '<span class="badge ' + (numberValue(checkpoints.failed) ? 'err' : 'ok') + '" title="检查点统计：总 '
-            + numberValue(checkpoints.total) + ' · 已测试 ' + (numberValue(checkpoints.tested) || 0)
-            + ' · 未通过 ' + (numberValue(checkpoints.failed) || 0)
-            + ' · 未测试 ' + (numberValue(checkpoints.not_tested) || 0) + '">'
-            + '检查点 总 ' + numberValue(checkpoints.total)
-            + ' · 已测 ' + (numberValue(checkpoints.tested) || 0)
-            + ' · 未通过 ' + (numberValue(checkpoints.failed) || 0)
-            + '</span>';
-    }
-
     function roundTimeParts(status, active) {
         var parts = [];
         var started = absoluteTime(status.started_at);
@@ -1252,12 +1237,6 @@
             var icon = failed ? '✕' : (notRun ? '•' : '✓');
             var notes = [];
 
-            if (failed || notRun) {
-                var expected = item.expected ? '期望：' + item.expected : '';
-                var actual = item.actual ? '实际：' + item.actual : '';
-                notes.push('<span class="case-failure">' + esc([expected, actual].filter(Boolean).join(' · ').slice(0, 600)) + '</span>');
-            }
-
             var designNotes = [];
 
             var context = [caseSystemOf(item) + ' / ' + caseModuleOf(item), '层：' + layerNameOf(item)];
@@ -1281,6 +1260,11 @@
             }
 
             notes.push('<span class="case-note">操作步骤：' + esc(item.operation_steps || '历史用例未记录') + '</span>');
+
+            if (failed || notRun) {
+                if (item.expected) { notes.push('<span class="case-failure">期望：' + esc(item.expected) + '</span>'); }
+                if (item.actual) { notes.push('<span class="case-failure">实际：' + esc(item.actual.slice(0, 600)) + '</span>'); }
+            }
 
             if (item.via_page) {
                 notes.push('<span class="case-note">穿透页面：' + esc(item.via_page) + '</span>');
@@ -1726,7 +1710,6 @@
             var timeParts = roundTimeParts(status, active);
             if (timeParts.length) { identity.push('<span class="run-time">' + esc(timeParts.join(' · ')) + '</span>'); }
             metrics.push('<span class="run-metric">' + totalsBadge(status) + '</span>');
-            metrics.push('<span class="run-metric">' + checkpointBadge(status) + '</span>');
 
             var coverageItems = coverageBadges(status);
             if (coverageItems.length) {
