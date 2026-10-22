@@ -298,6 +298,20 @@
     .run-metric .badge.err { color: var(--err); }
     .run-metric-coverage { gap: 6px 12px; }
 
+    .run-result-line {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 7px 10px;
+        margin-top: 9px;
+    }
+
+    .run-result-line .layers {
+        margin-top: 0;
+        padding-left: 10px;
+        border-left: 1px solid var(--border);
+    }
+
     .run-status-line {
         display: flex;
         flex-wrap: wrap;
@@ -307,12 +321,6 @@
     }
 
     .run-audits { display: flex; flex-wrap: wrap; gap: 6px; }
-
-    .run-status-line .layers {
-        margin-top: 0;
-        padding-left: 10px;
-        border-left: 1px solid var(--border);
-    }
 
     .run-alert { margin-top: 7px; }
 
@@ -1758,6 +1766,7 @@
         var active = item.kind === 'round' && isActiveRound(item.status);
         var identity = [];
         var metrics = [];
+        var results = [];
         var audits = [];
         var detail = '';
         var error = '';
@@ -1774,13 +1783,13 @@
 
             var timeParts = roundTimeParts(status, active);
             if (timeParts.length) { identity.push('<span class="run-time">' + esc(timeParts.join(' · ')) + '</span>'); }
-            metrics.push('<span class="run-metric">' + totalsBadge(status) + '</span>');
 
             var coverageItems = coverageBadges(status);
             if (coverageItems.length) {
                 metrics.push('<span class="run-metric run-metric-coverage">' + coverageItems.join('') + '</span>');
             }
 
+            results.push('<span class="run-metric">' + totalsBadge(status) + '</span>');
             audits = auditBadges(status);
 
             detail = currentDetail(status);
@@ -1820,23 +1829,23 @@
                 if (timeParts.length) { identity.push('<span class="run-time">' + esc(timeParts.join(' · ')) + '</span>'); }
 
                 if (round && round.totals) {
-                    metrics.push('<span class="run-metric"><span class="badge ' + (round.totals.failed || round.totals.not_run ? 'err' : 'ok') + '">全量通过率 '
-                        + pctText(round.totals.pass_rate) + '（' + round.totals.passed + '/' + round.totals.total + '）</span></span>');
-
                     var roundCoverage = coverageBadges({ coverage: round.coverage || {} });
                     if (roundCoverage.length) {
                         metrics.push('<span class="run-metric run-metric-coverage">' + roundCoverage.join('') + '</span>');
                     }
+
+                    results.push('<span class="run-metric"><span class="badge ' + (round.totals.failed || round.totals.not_run ? 'err' : 'ok') + '">全量通过率 '
+                        + pctText(round.totals.pass_rate) + '（' + round.totals.passed + '/' + round.totals.total + '）</span></span>');
                 } else {
+                    var lines = meta.coverage && meta.coverage.totals && meta.coverage.totals.lines;
+                    if (lines && lines.pct) { metrics.push('<span class="run-metric">前端行覆盖 ' + esc(lines.pct) + '</span>'); }
+
                     var stats = stepStats(meta);
 
                     if (stats.total > 0) {
-                        metrics.push('<span class="run-metric"><span class="badge ' + (stats.failed ? 'err' : 'ok') + '">前端用例通过率 '
+                        results.push('<span class="run-metric"><span class="badge ' + (stats.failed ? 'err' : 'ok') + '">前端用例通过率 '
                             + esc(stats.rateLabel) + '（' + stats.passed + '/' + stats.total + '）</span></span>');
                     }
-
-                    var lines = meta.coverage && meta.coverage.totals && meta.coverage.totals.lines;
-                    if (lines && lines.pct) { metrics.push('<span class="run-metric">前端行覆盖 ' + esc(lines.pct) + '</span>'); }
                 }
 
                 if (meta.error) {
@@ -1851,13 +1860,19 @@
             }
         }
 
-        var statusLine = '';
+        var resultLine = '';
 
-        if (item.kind === 'round') {
-            statusLine = '<div class="run-status-line">'
-                + (audits.length ? '<div class="run-audits">' + audits.join('') + '</div>' : '')
-                + '<div class="layers">' + layerChips(item.status) + '</div>'
+        if (results.length || item.kind === 'round') {
+            resultLine = '<div class="run-result-line">'
+                + results.join('')
+                + (item.kind === 'round' ? '<div class="layers">' + layerChips(item.status) + '</div>' : '')
                 + '</div>';
+        }
+
+        var auditLine = '';
+
+        if (audits.length) {
+            auditLine = '<div class="run-status-line"><div class="run-audits">' + audits.join('') + '</div></div>';
         }
 
         var errorHtml = error;
@@ -1870,7 +1885,8 @@
             + '<div class="run-row">'
             + '<div class="run-main"><div class="run-head">' + identity.join('') + '</div>'
             + (metrics.length ? '<div class="run-metrics">' + metrics.join('') + '</div>' : '')
-            + statusLine
+            + resultLine
+            + auditLine
             + (detail ? '<div class="round-detail">' + esc(detail) + '</div>' : '')
             + errorHtml
             + '</div>'
